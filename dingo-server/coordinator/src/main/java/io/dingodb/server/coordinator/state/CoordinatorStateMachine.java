@@ -20,6 +20,7 @@ import io.dingodb.common.concurrent.Executors;
 import io.dingodb.meta.MetaService;
 import io.dingodb.mpu.core.Core;
 import io.dingodb.mpu.core.CoreListener;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.net.Channel;
 import io.dingodb.net.Message;
 import io.dingodb.net.NetService;
@@ -27,6 +28,7 @@ import io.dingodb.net.api.ApiRegistry;
 import io.dingodb.server.api.MetaServiceApi;
 import io.dingodb.server.coordinator.api.CoordinatorServerApi;
 import io.dingodb.server.coordinator.api.ScheduleApi;
+import io.dingodb.server.coordinator.api.SysInfoServiceApi;
 import io.dingodb.server.coordinator.config.CoordinatorConfiguration;
 import io.dingodb.server.coordinator.meta.adaptor.impl.BaseAdaptor;
 import io.dingodb.server.coordinator.meta.adaptor.impl.BaseStatsAdaptor;
@@ -47,9 +49,11 @@ import static io.dingodb.server.coordinator.meta.service.DingoMetaService.ROOT;
 @Slf4j
 public class CoordinatorStateMachine implements CoreListener {
 
+    public static CoordinatorStateMachine stateMachine;
+
     public static void init(Core core) {
         MetaStore metaStore = new MetaStore(core);
-        CoordinatorStateMachine stateMachine = new CoordinatorStateMachine(core, metaStore);
+        stateMachine = new CoordinatorStateMachine(core, metaStore);
     }
 
     private final Core core;
@@ -58,6 +62,8 @@ public class CoordinatorStateMachine implements CoreListener {
 
     private CoordinatorServerApi serverApi;
     private ScheduleApi scheduleApi;
+
+    private SysInfoServiceApi sysInfoServiceApi;
     private final Set<Channel> leaderListener = new CopyOnWriteArraySet<>();
 
     private CoordinatorStateMachine(Core core, MetaStore metaStore) {
@@ -80,6 +86,10 @@ public class CoordinatorStateMachine implements CoreListener {
         if (scheduleApi == null) {
             scheduleApi = new ScheduleApi();
         }
+        if (sysInfoServiceApi == null) {
+            sysInfoServiceApi = new SysInfoServiceApi();
+        }
+
         leaderListener.forEach(channel -> Executors.submit("primary-notify", () -> {
             log.info("Send primary message to [{}].", channel.remoteLocation().url());
             channel.send(Message.EMPTY);

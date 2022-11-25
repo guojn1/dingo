@@ -71,4 +71,5 @@ include 'dingo-mirror-processing-unit'
 include 'dingo-store-mpu'
 include 'dingo-test:meta-local'
 findProject(':dingo-test:meta-local')?.name = 'dingo-meta-local'
+include 'dingo-verify'
 
