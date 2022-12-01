@@ -17,14 +17,27 @@
 package io.dingodb.calcite;
 
 import io.dingodb.calcite.grammar.ddl.DingoSqlCreateTable;
+import io.dingodb.calcite.grammar.ddl.DingoSqlCreateUser;
+import io.dingodb.calcite.grammar.ddl.DingoSqlDropUser;
+import io.dingodb.calcite.grammar.ddl.DingoSqlGrant;
+import io.dingodb.calcite.grammar.ddl.DingoSqlRevoke;
 import io.dingodb.calcite.grammar.ddl.SqlTruncate;
 import io.dingodb.common.partition.DingoPartDetail;
 import io.dingodb.common.partition.DingoTablePart;
+import io.dingodb.common.privilege.PrivilegeDefinition;
+import io.dingodb.common.privilege.PrivilegeType;
+import io.dingodb.common.privilege.SchemaPrivDefinition;
+import io.dingodb.common.privilege.TablePrivDefinition;
+import io.dingodb.common.privilege.UserDefinition;
 import io.dingodb.common.table.ColumnDefinition;
 import io.dingodb.common.table.TableDefinition;
 import io.dingodb.common.type.converter.StrParseConverter;
 import io.dingodb.common.util.Optional;
 import io.dingodb.common.util.Parameters;
+import io.dingodb.net.NetService;
+import io.dingodb.server.api.SysInfoServiceApi;
+import io.dingodb.server.client.connector.impl.CoordinatorConnector;
+import io.dingodb.verify.plugin.AlgorithmPlugin;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -62,7 +75,11 @@ import static org.apache.calcite.util.Static.RESOURCE;
 public class DingoDdlExecutor extends DdlExecutorImpl {
     public static final DingoDdlExecutor INSTANCE = new DingoDdlExecutor();
 
+    public SysInfoServiceApi sysInfoServiceApi;
+
     private DingoDdlExecutor() {
+        this.sysInfoServiceApi = NetService.getDefault().apiRegistry().proxy(SysInfoServiceApi.class,
+            CoordinatorConnector.getDefault());
     }
 
     private static @Nullable ColumnDefinition fromSqlColumnDeclaration(
@@ -262,6 +279,66 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
 
     }
 
+    public void execute(@NonNull DingoSqlGrant sqlGrant, CalcitePrepare.Context context) {
+        log.info("DDL execute: {}", sqlGrant);
+        if (!"*".equals(sqlGrant.table)) {
+            SqlIdentifier name = sqlGrant.tableIdentifier;
+            final Pair<MutableSchema, String> schemaTableName
+                = getSchemaAndTableName(name, context);
+            final String tableName = Parameters.nonNull(schemaTableName.right, "table name");
+            final MutableSchema schema = Parameters.nonNull(schemaTableName.left, "table schema");
+            if (schema.getTable(tableName) == null) {
+                throw new RuntimeException("table doesn't exist");
+            }
+        }
+        if (sysInfoServiceApi.existsUser(UserDefinition.builder().user(sqlGrant.user).host(sqlGrant.host).build())) {
+            PrivilegeDefinition privilegeDefinition = getPrivilegeDefinition(sqlGrant);
+            sysInfoServiceApi.grant(privilegeDefinition);
+        } else {
+            throw new RuntimeException("You are not allowed to create a user with GRANT");
+        }
+    }
+
+    public void execute(@NonNull DingoSqlRevoke sqlRevoke, CalcitePrepare.Context context) {
+        log.info("DDL execute: {}", sqlRevoke);
+        if (!"*".equals(sqlRevoke.table)) {
+            SqlIdentifier name = sqlRevoke.tableIdentifier;
+            final Pair<MutableSchema, String> schemaTableName
+                = getSchemaAndTableName(name, context);
+            final String tableName = Parameters.nonNull(schemaTableName.right, "table name");
+            final MutableSchema schema = Parameters.nonNull(schemaTableName.left, "table schema");
+            if (schema.getTable(tableName) == null) {
+                throw new RuntimeException("table doesn't exist");
+            }
+        }
+        if (sysInfoServiceApi.existsUser(UserDefinition.builder().user(sqlRevoke.user).host(sqlRevoke.host).build())) {
+            PrivilegeDefinition privilegeDefinition = getPrivilegeDefinition(sqlRevoke);
+            sysInfoServiceApi.revoke(privilegeDefinition);
+        } else {
+            throw new RuntimeException("You are not allowed to create a user with GRANT");
+        }
+    }
+
+    public void execute(@NonNull DingoSqlCreateUser sqlCreateUser, CalcitePrepare.Context context) {
+        log.info("DDL execute: {}", sqlCreateUser);
+        UserDefinition userDefinition = UserDefinition.builder().user(sqlCreateUser.user)
+            .host(sqlCreateUser.host).build();
+        if (sysInfoServiceApi.existsUser(userDefinition)) {
+            throw new RuntimeException("user is exists");
+        } else {
+            userDefinition.setPlugin("mysql_native_password");
+            String digestPwd = AlgorithmPlugin.digestAlgorithm(sqlCreateUser.password, userDefinition.getPlugin());
+            userDefinition.setPassword(digestPwd);
+            sysInfoServiceApi.createUser(userDefinition);
+        }
+    }
+
+    public void execute(@NonNull DingoSqlDropUser sqlDropUser, CalcitePrepare.Context context) {
+        log.info("DDL execute: {}", sqlDropUser);
+        UserDefinition userDefinition = UserDefinition.builder().user(sqlDropUser.name).host(sqlDropUser.host).build();
+        sysInfoServiceApi.dropUser(userDefinition);
+    }
+
     public void validatePartitionBy(
         @NonNull List<String> keyList,
         @NonNull List<ColumnDefinition> cols,
@@ -295,5 +372,33 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
             default:
                 throw new IllegalStateException("Unsupported " + strategy);
         }
+    }
+
+    @NonNull
+    private PrivilegeDefinition getPrivilegeDefinition(@NonNull DingoSqlGrant sqlGrant) {
+        String table = sqlGrant.table;
+        String schema = sqlGrant.schema;
+        PrivilegeDefinition privilegeDefinition = null;
+        PrivilegeType privilegeType = null;
+        if ("*".equals(table) && "*".equals(schema)) {
+            privilegeDefinition = UserDefinition.builder()
+                .build();
+            privilegeType = PrivilegeType.USER;
+        } else if ("*".equals(table)) {
+            privilegeDefinition = SchemaPrivDefinition.builder()
+                .schema(schema)
+                .build();
+            privilegeType = PrivilegeType.SCHEMA;
+        } else {
+            privilegeDefinition = TablePrivDefinition.builder()
+                .schema(schema)
+                .table(table)
+                .build();
+            privilegeType = PrivilegeType.TABLE;
+        }
+        privilegeDefinition.setPrivilegeIndexs(sqlGrant.getPrivileges(privilegeType));
+        privilegeDefinition.setUser(sqlGrant.user);
+        privilegeDefinition.setHost(sqlGrant.host);
+        return privilegeDefinition;
     }
 }

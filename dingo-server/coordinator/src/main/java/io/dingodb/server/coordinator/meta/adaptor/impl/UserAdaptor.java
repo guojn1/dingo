@@ -19,31 +19,54 @@ package io.dingodb.server.coordinator.meta.adaptor.impl;
 import com.google.auto.service.AutoService;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.privilege.UserDefinition;
+import io.dingodb.common.util.Optional;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.meta.User;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
-import static io.dingodb.server.protocol.CommonIdConstant.TABLE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.PRIVILEGE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.ROOT_DOMAIN;
 
+@Slf4j
 public class UserAdaptor extends BaseAdaptor<User> {
 
-    //todo
-    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.other, TABLE_IDENTIFIER.table);
+    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.data, PRIVILEGE_IDENTIFIER.user);
+
+    protected final Map<String, User> userMap;
 
     public UserAdaptor(MetaStore metaStore) {
         super(metaStore);
         MetaAdaptorRegistry.register(User.class, this);
+        userMap = new ConcurrentHashMap<>();
+        metaMap.forEach((k, v) -> { userMap.put(v.getKey(), v); });
+
+        //do delete
+        User user = User.builder().user("root")
+            .host("%")
+            .plugin("mysql_native_password")
+            .password("cbcce4ebcf0e63f32a3d6904397792720f7e40ba")
+            .build();
+        user.setId(newId(user));
+        userMap.putIfAbsent("root#%", user);
     }
 
     @Override
     protected CommonId newId(User meta) {
-        return null;
+        return new CommonId(
+            META_ID.type(),
+            META_ID.identifier(), ROOT_DOMAIN,
+            metaStore.generateSeq(CommonId.prefix(META_ID.type(), META_ID.identifier()).encode())
+        );
     }
 
     @Override
@@ -53,11 +76,16 @@ public class UserAdaptor extends BaseAdaptor<User> {
 
     public Map<String, List<UserDefinition>> getAllDefinition() {
         return getAll().stream().map(this::metaToDefinition)
-            .collect(Collectors.groupingBy(UserDefinition::getUsername));
+            .collect(Collectors.groupingBy(UserDefinition::getUser));
     }
 
     private UserDefinition metaToDefinition(User user) {
-        return new UserDefinition();
+        return UserDefinition.builder()
+            .user(user.getUser())
+            .host(user.getHost())
+            .password(user.getPassword())
+            .plugin(user.getPlugin())
+            .build();
     }
 
     @AutoService(BaseAdaptor.Creator.class)
@@ -68,22 +96,74 @@ public class UserAdaptor extends BaseAdaptor<User> {
         }
     }
 
-    public List<UserDefinition> getUserDefinition(String user) {
-        // fake data
-        List<UserDefinition> userDefinitions = new ArrayList<>();
-        UserDefinition userDef = new UserDefinition();
-        userDef.setUsername("root");
-        userDef.setHost("172.27.128.1");
-        userDef.setPassword("cbcce4ebcf0e63f32a3d6904397792720f7e40ba");
-        userDef.setPlugin("mysql_native_password");
+    public CommonId create(UserDefinition userDefinition) {
+        log.info("user map:" + userMap.toString());
+        String userKey = userDefinition.getKey();
+        if (userMap.containsKey(userKey)) {
+            return userMap.get(userKey).getId();
+        } else {
+            User user = definitionToMeta(userDefinition);
+            user.setId(newId(user));
+            doSave(user);
+            return user.getId();
+        }
 
-        UserDefinition userDef1 = new UserDefinition();
-        userDef.setUsername("root");
-        userDef.setHost("172.25.1.157");
-        userDef.setPassword("cbcce4ebcf0e63f32a3d6904397792720f7e40ba");
-        userDef.setPlugin("mysql_native_password");
-        userDefinitions.add(userDef);
-        userDefinitions.add(userDef1);
+    }
+
+    @Override
+    protected void doSave(User user) {
+        super.doSave(user);
+        userMap.putIfAbsent(user.getKey(), user);
+    }
+
+    public boolean isExist(UserDefinition userDefinition) {
+        log.info("user key:" + userDefinition.getKey() + ", usermap:" + userMap);
+        if (userMap.containsKey(userDefinition.getKey())) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected void doDelete(User meta) {
+        super.doDelete(meta);
+    }
+
+    public CommonId delete(UserDefinition userDefinition) {
+        User user = userMap.remove(userDefinition.getKey());
+        if (user != null) {
+            this.doDelete(user);
+            log.info("do delete userMap:" + userMap);
+            return user.getId();
+        } else {
+            log.error("remove user is null");
+        }
+        return null;
+    }
+
+    public List<User> getUser(String user) {
+        return userMap.entrySet().stream()
+            .filter(k -> k.getKey().startsWith(user + "#"))
+            .map(Map.Entry :: getValue)
+            .collect(Collectors.toList());
+    }
+
+    public List<UserDefinition> getUserDefinition(String user) {
+        List<UserDefinition> userDefinitions = new ArrayList<>();
+        userMap.forEach((k, v) -> {
+            if (k.startsWith(user)) {
+                userDefinitions.add(metaToDefinition(v));
+            }
+        });
+        log.info("userMap:" + userMap);
         return userDefinitions;
+    }
+
+    private User definitionToMeta(UserDefinition definition) {
+        return User.builder().user(definition.getUser())
+            .host(definition.getHost())
+            .plugin(definition.getPlugin())
+            .password(definition.getPassword())
+            .build();
     }
 }

@@ -16,20 +16,33 @@
 
 package io.dingodb.common.privilege;
 
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+
+import java.util.List;
 
 @Setter
 @Getter
 @NoArgsConstructor
+@ToString
 public class UserDefinition extends PrivilegeDefinition {
-    private String username;
-    private String host;
     private String plugin;
     private String password;
 
-    public String getKey() {
-        return username + host;
+    Boolean[] privileges;
+
+    @Builder(toBuilder = true)
+    public UserDefinition(String user, String host, String plugin,
+                          String password) {
+        super(user, host);
+        this.plugin = plugin;
+        this.password = password;
     }
+
+    public String getKey() {
+        StringBuilder schemaPrivKey = new StringBuilder();
+        return schemaPrivKey.append(user)
+            .append("#").append(host)
+            .toString();
+    }
+
 }

@@ -1066,6 +1066,10 @@ SqlNode SqlStmt() :
         stmt = SqlMerge()
     |
         stmt = SqlProcedureCall()
+    |
+        stmt = SqlGrant()
+    |
+        stmt = SqlRevoke()
     )
     {
         return stmt;
@@ -4203,6 +4207,8 @@ SqlCreate SqlCreate() :
         create = ${method}(s, replace)
         <#sep>| LOOKAHEAD(2) </#sep>
 </#list>
+        |
+         create = SqlCreateUser(s, replace)
     )
     {
         return create;
@@ -7885,7 +7891,6 @@ SqlPostfixOperator PostfixRowOperator() :
 |   < TABLE_NAME: "TABLE_NAME" >
 |   < TABLESAMPLE: "TABLESAMPLE" >
 |   < TEMPORARY: "TEMPORARY" >
-|   < THAN: "THAN" >
 |   < THEN: "THEN" >
 |   < TIES: "TIES" >
 |   < TIME: "TIME" >
@@ -7916,7 +7921,11 @@ SqlPostfixOperator PostfixRowOperator() :
 |   < TRIM_ARRAY: "TRIM_ARRAY" >
 |   < TRUE: "TRUE" >
 |   < TRUNCATE: "TRUNCATE" >
-|   < TTL: "TTL" >
+|   < IDENTIFIED: "IDENTIFIED" >
+|   < INDEX: "INDEX" >
+|   < RELOAD: "RELOAD" >
+|   < ATSPLIT: "@" >
+|   < THAN: "THAN" >
 |   < TUMBLE: "TUMBLE" >
 |   < TYPE: "TYPE" >
 |   < UESCAPE: "UESCAPE" >

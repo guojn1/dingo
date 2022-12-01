@@ -48,13 +48,10 @@ public class PrivilegeVerify {
     }
 
     public UserDefinition matchUser(String host, PrivilegeGather privilegeGather) {
-        //fake data
-        UserDefinition userDef = new UserDefinition();
-        userDef.setUsername("root");
-        userDef.setHost("172.20.3.93");
-        userDef.setPassword("cbcce4ebcf0e63f32a3d6904397792720f7e40ba");
-        userDef.setPlugin("mysql_native_password");
-        return userDef;
+        return UserDefinition.builder().user("root")
+            .password("cbcce4ebcf0e63f32a3d6904397792720f7e40ba")
+            .plugin("mysql_native_password")
+            .build();
     }
 
     public UserDefinition matchUser(String host, List<UserDefinition> userDefList) {

@@ -17,11 +17,38 @@
 package io.dingodb.server.protocol.meta;
 
 import io.dingodb.common.CommonId;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.experimental.FieldNameConstants;
 
+@Setter
+@Getter
+@NoArgsConstructor
+@Builder
+@ToString
+@FieldNameConstants(asEnum = true)
+@AllArgsConstructor
+@EqualsAndHashCode
 public class TablePriv implements Meta {
+
+    private CommonId id;
+
+    private String user;
+
+    private String host;
+
+    private String schema;
+
+    private String table;
+
     @Override
     public void setId(CommonId id) {
-
+        this.id = id;
     }
 
     @Override
@@ -36,7 +63,7 @@ public class TablePriv implements Meta {
 
     @Override
     public CommonId getId() {
-        return null;
+        return id;
     }
 
     @Override
@@ -47,5 +74,13 @@ public class TablePriv implements Meta {
     @Override
     public long getUpdateTime() {
         return 0;
+    }
+
+    public String getKey() {
+        StringBuilder schemaPrivKey = new StringBuilder();
+        return schemaPrivKey.append(user)
+            .append("#").append(host)
+            .append("#").append(schema)
+            .append("#").append(table).toString();
     }
 }

@@ -30,6 +30,7 @@ public class ApiPrivDefinition extends PrivilegeDefinition implements Serializab
 
     private Map<String, Boolean[]> tablePrivilege;
 
-
-
+    public ApiPrivDefinition(String user, String host) {
+        super(user, host);
+    }
 }

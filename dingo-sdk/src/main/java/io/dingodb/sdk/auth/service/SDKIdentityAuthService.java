@@ -28,7 +28,7 @@ import java.net.UnknownHostException;
 
 public class SDKIdentityAuthService implements AuthService<Authentication> {
 
-    private final static AuthService INSTANCE = new SDKIdentityAuthService();
+    private static final AuthService INSTANCE = new SDKIdentityAuthService();
 
     @AutoService(AuthService.Provider.class)
     public static class SDKIdentityAuthServiceProvider implements AuthService.Provider {

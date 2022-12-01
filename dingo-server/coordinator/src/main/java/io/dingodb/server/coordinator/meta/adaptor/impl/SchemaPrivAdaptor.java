@@ -18,30 +18,43 @@ package io.dingodb.server.coordinator.meta.adaptor.impl;
 
 import com.google.auto.service.AutoService;
 import io.dingodb.common.CommonId;
+import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.SchemaPrivDefinition;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.meta.SchemaPriv;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
-import static io.dingodb.server.protocol.CommonIdConstant.TABLE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.PRIVILEGE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.ROOT_DOMAIN;
 
+@Slf4j
 public class SchemaPrivAdaptor extends BaseAdaptor<SchemaPriv> {
-    //todo
-    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.other, TABLE_IDENTIFIER.table);
+    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.data, PRIVILEGE_IDENTIFIER.schemaPrivilege);
+
+    protected final Map<String, SchemaPriv> schemaPrivMap;
 
     public SchemaPrivAdaptor(MetaStore metaStore) {
         super(metaStore);
         MetaAdaptorRegistry.register(SchemaPriv.class, this);
+        schemaPrivMap = new ConcurrentHashMap<>();
+
+        metaMap.forEach((k, v) -> { schemaPrivMap.put(v.getKey(), v); } );
     }
 
     @Override
     protected CommonId newId(SchemaPriv meta) {
-        return null;
+        return new CommonId(
+            META_ID.type(),
+            META_ID.identifier(), ROOT_DOMAIN,
+            metaStore.generateSeq(CommonId.prefix(META_ID.type(), META_ID.identifier()).encode())
+        );
     }
 
     @Override
@@ -51,7 +64,7 @@ public class SchemaPrivAdaptor extends BaseAdaptor<SchemaPriv> {
 
     public Map<String, List<SchemaPrivDefinition>> getAllDefinition() {
         return getAll().stream().map(this::metaToDefinition)
-            .collect(Collectors.groupingBy(SchemaPrivDefinition::getUsername));
+            .collect(Collectors.groupingBy(SchemaPrivDefinition::getUser));
     }
 
     private SchemaPrivDefinition metaToDefinition(SchemaPriv tablePriv) {
@@ -66,7 +79,53 @@ public class SchemaPrivAdaptor extends BaseAdaptor<SchemaPriv> {
         }
     }
 
-    public List<SchemaPrivDefinition> getSchemaPrivilege(String user) {
+    public List<SchemaPriv> getSchemaPrivilege(String user) {
+        return schemaPrivMap.entrySet().stream()
+            .filter(k -> { return k.getKey().startsWith(user + "#"); })
+            .map(Map.Entry :: getValue)
+            .collect(Collectors.toList());
+    }
+
+    public CommonId create(SchemaPrivDefinition schemaPrivDefinition) {
+        String schemaPrivKey = schemaPrivDefinition.getKey();
+        log.info("schema privilege map:" + schemaPrivMap);
+        if (schemaPrivMap.containsKey(schemaPrivKey)) {
+            return schemaPrivMap.get(schemaPrivKey).getId();
+        } else {
+            SchemaPriv schemaPriv = definitionToMeta(schemaPrivDefinition);
+            schemaPriv.setId(newId(schemaPriv));
+            doSave(schemaPriv);
+            return schemaPriv.getId();
+        }
+    }
+
+    @Override
+    protected void doSave(SchemaPriv schemaPriv) {
+        super.doSave(schemaPriv);
+        schemaPrivMap.putIfAbsent(schemaPriv.getKey(), schemaPriv);
+    }
+
+    private SchemaPriv definitionToMeta(SchemaPrivDefinition definition) {
+        return SchemaPriv.builder().user(definition.getUser())
+            .host(definition.getHost())
+            .schema(definition.getSchema())
+            .build();
+    }
+
+    @Override
+    protected void doDelete(SchemaPriv meta) {
+        super.doDelete(meta);
+    }
+
+    public CommonId delete(SchemaPrivDefinition definition) {
+        SchemaPriv schemaPriv = schemaPrivMap.remove(definition.getKey());
+        if (schemaPriv != null) {
+            doDelete(schemaPriv);
+            log.info("schemaPrivMap:" + schemaPrivMap);
+            return schemaPriv.getId();
+        } else {
+            log.error("schema privilege is null");
+        }
         return null;
     }
 }

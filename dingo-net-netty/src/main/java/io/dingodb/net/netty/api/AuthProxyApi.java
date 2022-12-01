@@ -28,6 +28,7 @@ import io.dingodb.net.service.AuthService;
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 
 import static io.dingodb.net.Message.API_ERROR;
@@ -47,19 +48,18 @@ public interface AuthProxyApi {
         AuthService service = null;
         try {
             Map<String, Object[]> result = new HashMap<>();
-            boolean authed = false;
-            for (AuthService.Provider authServiceProvider : serviceProviders) {
-                service = authServiceProvider.get();
-                Certificate certificate = (Certificate) service.auth(authentication.get(service.tag()));
-                if (certificate.getCode() == 100) {
-                    authed = true;
+            try {
+                for (AuthService.Provider authServiceProvider : serviceProviders) {
+                    service = authServiceProvider.get();
+                    Certificate certificate = (Certificate) service.auth(authentication.get(service.tag()));
+                    Object[] ret = new Object[2];
+                    ret[0] = certificate;
+                    result.put(service.tag(), ret);
                 }
-                Object[] ret = new Object[2];
-                ret[0] = certificate;
-                result.put(service.tag(), ret);
-            }
-            if (!authed) {
-                throw new Exception("auth failed , authentication:" + authentication.toString());
+            } catch (Exception e) {
+                if (!(e instanceof NoSuchElementException)) {
+                   throw e;
+                }
             }
             return result;
         } catch (Exception e) {

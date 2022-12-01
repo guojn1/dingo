@@ -241,6 +241,32 @@ SqlCreate SqlCreateType(Span s, boolean replace) :
         return SqlDdlNodes.createType(s.end(this), replace, id, attributeDefList, type);
     }
 }
+SqlCreate SqlCreateUser(Span s, boolean replace) :
+{
+    final SqlIdentifier userIdentifier;
+    final String user;
+    String passwordStr = "";
+    String host = "%";
+    final SqlIdentifier password;
+    SqlNode create = null;
+    Boolean ifNotExists = false;
+}
+{
+    <USER> ifNotExists = IfNotExistsOpt()
+    [ <QUOTED_STRING> { user = token.image; }
+     [ <ATSPLIT> <QUOTED_STRING> { host = token.image; } ]
+     <IDENTIFIED> <BY>  <QUOTED_STRING> { passwordStr = token.image; }
+        {
+            return new DingoSqlCreateUser(user, passwordStr, host, s.end(this), replace, ifNotExists);
+        }
+    ]
+    userIdentifier = CompoundIdentifier()
+    [ <ATSPLIT> <QUOTED_STRING> { host = token.image; } ]
+    <IDENTIFIED> <BY>  <QUOTED_STRING> { passwordStr = token.image; }
+    {
+       return new DingoSqlCreateUser(userIdentifier.getSimple(), passwordStr, host, s.end(this), replace, ifNotExists);
+    }
+}
 
 SqlCreate SqlCreateTable(Span s, boolean replace) :
 {
@@ -536,6 +562,26 @@ SqlDrop SqlDropTable(Span s, boolean replace) :
     }
 }
 
+SqlDrop SqlDropUser(Span s, boolean replace) :
+{
+    final boolean ifExists;
+    final SqlIdentifier name;
+    String username;
+    String host = "%";
+}
+{
+    <USER> ifExists = IfExistsOpt()
+    [ <QUOTED_STRING> { username = token.image; }
+      [ <ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+      { return new DingoSqlDropUser(s.end(this), ifExists, username, host); }
+    ]
+    name = CompoundIdentifier()
+    [ <ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+    {
+        return new DingoSqlDropUser(s.end(this), ifExists, name.getSimple(), host);
+    }
+}
+
 SqlDrop SqlDropView(Span s, boolean replace) :
 {
     final boolean ifExists;
@@ -569,3 +615,232 @@ SqlDrop SqlDropFunction(Span s, boolean replace) :
         return SqlDdlNodes.dropFunction(s.end(this), ifExists, id);
     }
 }
+
+DingoSqlGrant SqlGrant() : {
+ final Span s;
+ final SqlIdentifier subject;
+ boolean isAllPrivileges = false;
+ SqlIdentifier userIdentifier;
+ String user;
+ String host = "%";
+ String privilege = "";
+ List<String> privilegeList = new ArrayList();
+} {
+   <GRANT> { s = span(); }
+   [ <ALL> <PRIVILEGES> { isAllPrivileges = true; } ]
+   [
+     privilege = privilege() {
+       if (privilege != null && !"".equals(privilege)) {
+         privilegeList.add(privilege);
+       }
+     }
+     (
+       <COMMA> privilege = privilege()
+       {
+         if (privilege != null && !"".equals(privilege)) {
+            privilegeList.add(privilege);
+         }
+       }
+     )*
+   ]
+   <ON>
+   subject = getSchemaTable()
+   <TO>
+    [
+         <QUOTED_STRING> { user = token.image; }
+         [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+         {
+         return new DingoSqlGrant(s.end(this), isAllPrivileges, privilegeList, subject, user, host);
+         }
+    ]
+    userIdentifier = CompoundIdentifier() { user = userIdentifier.getSimple(); }
+    [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+    {
+        return new DingoSqlGrant(s.end(this), isAllPrivileges, privilegeList, subject, userIdentifier.getSimple(), host);
+    }
+}
+
+SqlIdentifier getSchemaTable() :
+{
+    final List<String> nameList = new ArrayList<String>();
+    final List<SqlParserPos> posList = new ArrayList<SqlParserPos>();
+    boolean star = false;
+}
+{
+    schemaTableSegment(nameList, posList)
+    (
+        LOOKAHEAD(2)
+        <DOT>
+        schemaTableSegment(nameList, posList)
+    )*
+    (
+        LOOKAHEAD(2)
+        <DOT>
+        <STAR> {
+            star = true;
+            nameList.add("");
+            posList.add(getPos());
+        }
+    )?
+    {
+        SqlParserPos pos = SqlParserPos.sum(posList);
+        if (star) {
+            return SqlIdentifier.star(nameList, pos, posList);
+        }
+        return new SqlIdentifier(nameList, null, pos, posList);
+    }
+}
+
+void schemaTableSegment(List<String> names, List<SqlParserPos> positions) :
+{
+    final String id;
+    char unicodeEscapeChar = BACKSLASH;
+    final SqlParserPos pos;
+    final Span span;
+}
+{
+    (
+        <IDENTIFIER> {
+            id = unquotedIdentifier();
+            pos = getPos();
+        }
+    |
+        <HYPHENATED_IDENTIFIER> {
+            id = unquotedIdentifier();
+            pos = getPos();
+        }
+    |
+        <QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.stripQuotes(getToken(0).image, DQ, DQ, DQDQ,
+                quotedCasing);
+            pos = getPos().withQuoting(true);
+        }
+    |
+        <BACK_QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.stripQuotes(getToken(0).image, "`", "`", "``",
+                quotedCasing);
+            pos = getPos().withQuoting(true);
+        }
+    |
+        <BIG_QUERY_BACK_QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.stripQuotes(getToken(0).image, "`", "`", "\\`",
+                quotedCasing);
+            pos = getPos().withQuoting(true);
+        }
+    |
+        <BRACKET_QUOTED_IDENTIFIER> {
+            id = SqlParserUtil.stripQuotes(getToken(0).image, "[", "]", "]]",
+                quotedCasing);
+            pos = getPos().withQuoting(true);
+        }
+    |
+        <UNICODE_QUOTED_IDENTIFIER> {
+            span = span();
+            String image = getToken(0).image;
+            image = image.substring(image.indexOf('"'));
+            image = SqlParserUtil.stripQuotes(image, DQ, DQ, DQDQ, quotedCasing);
+        }
+        [
+            <UESCAPE> <QUOTED_STRING> {
+                String s = SqlParserUtil.parseString(token.image);
+                unicodeEscapeChar = SqlParserUtil.checkUnicodeEscapeChar(s);
+            }
+        ]
+        {
+            pos = span.end(this).withQuoting(true);
+            SqlLiteral lit = SqlLiteral.createCharString(image, "UTF16", pos);
+            lit = lit.unescapeUnicode(unicodeEscapeChar);
+            id = lit.toValue();
+        }
+    |
+        id = NonReservedKeyWord() {
+            pos = getPos();
+        }
+    |
+        <STAR> {
+         id = "*";
+         pos = getPos();
+        }
+    )
+    {
+        if (id.length() > this.identifierMaxLength) {
+            throw SqlUtil.newContextException(pos,
+                RESOURCE.identifierTooLong(id, this.identifierMaxLength));
+        }
+        names.add(id);
+        if (positions != null) {
+            positions.add(pos);
+        }
+    }
+}
+
+DingoSqlRevoke SqlRevoke() : {
+ final Span s;
+ SqlIdentifier subject = null;
+ boolean isAllPrivileges = false;
+ SqlIdentifier userIdentifier;
+ String user;
+ String host = "%";
+ String privilege = "";
+ List<String> privilegeList = new ArrayList();
+} {
+   <REVOKE> { s = span(); }
+   [ <ALL> <PRIVILEGES> { isAllPrivileges = true; } ]
+   [
+     privilege = privilege() {
+       if (privilege != null && !"".equals(privilege)) {
+         privilegeList.add(privilege);
+       }
+     }
+     (
+       <COMMA> privilege = privilege()
+       {
+         if (privilege != null && !"".equals(privilege)) {
+            privilegeList.add(privilege);
+         }
+       }
+     )*
+   ]
+   <ON>
+   subject = getSchemaTable()
+   <FROM>
+    [
+         <QUOTED_STRING> { user = token.image; }
+         [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+         {
+         return new DingoSqlRevoke(s.end(this), isAllPrivileges, privilegeList, subject, user, host);
+         }
+    ]
+    userIdentifier = CompoundIdentifier() { user = userIdentifier.getSimple(); }
+    [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+    {
+        return new DingoSqlRevoke(s.end(this), isAllPrivileges, privilegeList, subject, userIdentifier.getSimple(), host);
+    }
+}
+
+String privilege() : {
+   String privilege = "";
+}
+{
+  ( <SELECT>
+  | <UPDATE>
+  | <INSERT>
+  | <DELETE>
+  | <DROP>
+  | <GRANT>
+  | <REVOKE>
+  | <INDEX>
+  | <ALTER>
+  | <RELOAD>
+  )
+  {
+     return token.image;
+  }
+  |
+    <CREATE>
+    [ <VIEW> { return "create_view"; }]
+    [ <USER> { return "create_user"; }]
+    { return token.image; }
+}
+
+
