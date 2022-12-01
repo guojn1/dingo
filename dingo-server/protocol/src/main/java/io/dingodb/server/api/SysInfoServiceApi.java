@@ -16,25 +16,27 @@
 
 package io.dingodb.server.api;
 
-import io.dingodb.common.privilege.PrivilegeDefinition;
-import io.dingodb.common.privilege.PrivilegeGather;
-import io.dingodb.common.privilege.UserDefinition;
+import io.dingodb.common.privilege.*;
 import io.dingodb.common.annotation.ApiDeclaration;
 
 import java.util.List;
 
 public interface SysInfoServiceApi {
-    @ApiDeclaration
-    void createUser(UserDefinition user);
 
     @ApiDeclaration
-    void dropUser(UserDefinition user);
+    boolean existsUser(UserDefinition userDefinition);
 
     @ApiDeclaration
-    void grant(PrivilegeGather grants);
+    void createUser(UserDefinition userDefinition);
 
     @ApiDeclaration
-    void revoke(PrivilegeGather grants);
+    void dropUser(UserDefinition userDefinition);
+
+    @ApiDeclaration
+    void grant(PrivilegeDefinition privilegeDefinition);
+
+    @ApiDeclaration
+    void revoke(PrivilegeDefinition privilegeDefinition);
 
     @ApiDeclaration
     PrivilegeGather getPrivilegeDef(String user);

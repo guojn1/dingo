@@ -16,23 +16,8 @@
 
 package io.dingodb.common.privilege;
 
-import lombok.Builder;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
-
-@Setter
-@Getter
-@Builder
-@ToString
-public class PrivilegeGather implements Serializable {
-    private static final long serialVersionUID = 3710791330563076956L;
-
-    private List<UserDefinition> userDefMap;
-    private List<SchemaPrivDefinition> schemaPrivDefMap;
-    private List<TablePrivDefinition> tablePrivDefMap;
+public enum PrivilegeType {
+    USER,
+    SCHEMA,
+    TABLE
 }

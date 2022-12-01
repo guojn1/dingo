@@ -22,27 +22,39 @@ import io.dingodb.common.privilege.TablePrivDefinition;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.meta.TablePriv;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
-import static io.dingodb.server.protocol.CommonIdConstant.TABLE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.PRIVILEGE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.ROOT_DOMAIN;
 
+@Slf4j
 public class TablePrivAdaptor extends BaseAdaptor<TablePriv> {
 
-    //todo
-    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.other, TABLE_IDENTIFIER.table);
+    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.data, PRIVILEGE_IDENTIFIER.tablePrivilege);
+
+    protected final Map<String, TablePriv> tablePrivMap;
 
     public TablePrivAdaptor(MetaStore metaStore) {
         super(metaStore);
         MetaAdaptorRegistry.register(TablePriv.class, this);
+        tablePrivMap = new ConcurrentHashMap<>();
+
+        metaMap.forEach((k, v) -> { tablePrivMap.put(v.getKey(), v); });
     }
 
     @Override
     protected CommonId newId(TablePriv meta) {
-        return null;
+        return new CommonId(
+            META_ID.type(),
+            META_ID.identifier(), ROOT_DOMAIN,
+            metaStore.generateSeq(CommonId.prefix(META_ID.type(), META_ID.identifier()).encode())
+        );
     }
 
     @Override
@@ -72,9 +84,50 @@ public class TablePrivAdaptor extends BaseAdaptor<TablePriv> {
      * @param user username
      * @return list
      */
-    public List<TablePrivDefinition> getTablePrivilege(String user) {
-        // user dingo  table userInfo
-        // user dingo  table dept
+    public List<TablePriv> getTablePrivilege(String user) {
+        return tablePrivMap.entrySet().stream()
+            .filter(k -> k.getKey().startsWith(user + "#"))
+            .map(Map.Entry :: getValue)
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    protected void doSave(TablePriv tablePriv) {
+        super.doSave(tablePriv);
+        tablePrivMap.putIfAbsent(tablePriv.getKey(), tablePriv);
+    }
+
+    public CommonId create(TablePrivDefinition tablePrivDefinition) {
+        String tablePrivKey = tablePrivDefinition.getKey();
+        log.info("table privilege map:" + tablePrivMap);
+        if (tablePrivMap.containsKey(tablePrivKey)) {
+            return tablePrivMap.get(tablePrivKey).getId();
+        } else {
+            TablePriv tablePriv = definitionToMeta(tablePrivDefinition);
+            tablePriv.setId(newId(tablePriv));
+            doSave(tablePriv);
+            return tablePriv.getId();
+        }
+    }
+
+    private TablePriv definitionToMeta(TablePrivDefinition definition) {
+        return TablePriv.builder().user(definition.getUser())
+            .host(definition.getHost())
+            .schema(definition.getSchema())
+            .table(definition.getTable())
+            .build();
+    }
+
+    public CommonId delete(TablePrivDefinition definition) {
+        TablePriv tablePriv = tablePrivMap.remove(definition.getKey());
+        if (tablePriv != null) {
+            doDelete(tablePriv);
+            log.info("tablePriv:" + tablePriv);
+            return tablePriv.getId();
+        } else {
+            log.error("table privilege is null");
+        }
         return null;
     }
+
 }

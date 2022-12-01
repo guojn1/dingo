@@ -74,6 +74,9 @@ public class TokenAuthService implements AuthService<Authentication> {
     @Override
     public Object auth(Authentication authentication) throws Exception {
         try {
+            if (authentication == null) {
+                return Certificate.builder().code(200).build();
+            }
             String token = authentication.getToken();
             Map<String, Object> clientInfo = verifyToken(token);
             if (clientInfo == null) {

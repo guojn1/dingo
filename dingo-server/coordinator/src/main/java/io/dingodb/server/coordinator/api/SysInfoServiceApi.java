@@ -16,14 +16,18 @@
 
 package io.dingodb.server.coordinator.api;
 
+import io.dingodb.common.CommonId;
+import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.SchemaPrivDefinition;
 import io.dingodb.common.privilege.TablePrivDefinition;
 import io.dingodb.common.privilege.UserDefinition;
 import io.dingodb.net.api.ApiRegistry;
+import io.dingodb.server.coordinator.meta.adaptor.impl.PrivilegeAdaptor;
 import io.dingodb.server.coordinator.meta.adaptor.impl.SchemaPrivAdaptor;
 import io.dingodb.server.coordinator.meta.adaptor.impl.TablePrivAdaptor;
 import io.dingodb.server.coordinator.meta.adaptor.impl.UserAdaptor;
+import io.dingodb.server.protocol.meta.Privilege;
 import io.dingodb.server.protocol.meta.SchemaPriv;
 import io.dingodb.server.protocol.meta.TablePriv;
 import io.dingodb.server.protocol.meta.User;
@@ -37,37 +41,82 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
         ApiRegistry.getDefault().register(io.dingodb.server.api.SysInfoServiceApi.class, this);
     }
 
-    @Override
-    public void createUser(UserDefinition user) {
-
+    public boolean existsUser(UserDefinition userDefinition) {
+        return ((UserAdaptor)getMetaAdaptor(User.class)).isExist(userDefinition);
     }
 
     @Override
-    public void dropUser(UserDefinition user) {
-
+    public void createUser(UserDefinition userDefinition) {
+        ((UserAdaptor)getMetaAdaptor(User.class)).create(userDefinition);
     }
 
     @Override
-    public void grant(PrivilegeGather grants) {
-
+    public void dropUser(UserDefinition userDefinition) {
+        ((UserAdaptor)getMetaAdaptor(User.class)).delete(userDefinition);
     }
 
     @Override
-    public void revoke(PrivilegeGather grants) {
+    public void grant(PrivilegeDefinition privilegeDefinition) {
+        CommonId commonId = null;
+        if (privilegeDefinition instanceof UserDefinition) {
+            commonId = ((UserAdaptor)getMetaAdaptor(User.class))
+                .create((UserDefinition) privilegeDefinition);
+        } else if (privilegeDefinition instanceof SchemaPrivDefinition) {
+            commonId = ((SchemaPrivAdaptor)getMetaAdaptor(SchemaPriv.class))
+                .create((SchemaPrivDefinition) privilegeDefinition);
+        } else if (privilegeDefinition instanceof TablePrivDefinition) {
+            commonId = ((TablePrivAdaptor)getMetaAdaptor(TablePriv.class))
+                .create((TablePrivDefinition) privilegeDefinition);
+        }
+        ((PrivilegeAdaptor)getMetaAdaptor(Privilege.class)).create(privilegeDefinition, commonId);
+    }
 
+    @Override
+    public void revoke(PrivilegeDefinition privilegeDefinition) {
+        CommonId subjectId = null;
+        if (privilegeDefinition instanceof UserDefinition) {
+            subjectId = ((UserAdaptor)getMetaAdaptor(User.class))
+                .create((UserDefinition) privilegeDefinition);
+        } else if (privilegeDefinition instanceof SchemaPrivDefinition) {
+            subjectId = ((SchemaPrivAdaptor)getMetaAdaptor(SchemaPriv.class))
+                .create((SchemaPrivDefinition) privilegeDefinition);
+        } else if (privilegeDefinition instanceof TablePrivDefinition) {
+            subjectId = ((TablePrivAdaptor)getMetaAdaptor(TablePriv.class))
+                .create((TablePrivDefinition) privilegeDefinition);
+        }
+        boolean deleteAll = ((PrivilegeAdaptor)getMetaAdaptor(Privilege.class)).delete(privilegeDefinition, subjectId);
+        if (deleteAll) {
+            if (privilegeDefinition instanceof UserDefinition) {
+                ((UserAdaptor)getMetaAdaptor(User.class))
+                    .delete((UserDefinition) privilegeDefinition);
+            } else if (privilegeDefinition instanceof SchemaPrivDefinition) {
+                ((SchemaPrivAdaptor)getMetaAdaptor(SchemaPriv.class))
+                    .delete((SchemaPrivDefinition) privilegeDefinition);
+            } else if (privilegeDefinition instanceof TablePrivDefinition) {
+                ((TablePrivAdaptor)getMetaAdaptor(TablePriv.class))
+                    .delete((TablePrivDefinition) privilegeDefinition);
+            }
+        }
     }
 
     @Override
     public PrivilegeGather getPrivilegeDef(String user) {
-        List<SchemaPrivDefinition> schemaPrivileges = ((SchemaPrivAdaptor) getMetaAdaptor(SchemaPriv.class))
+        List<SchemaPriv> schemaPrivileges = ((SchemaPrivAdaptor) getMetaAdaptor(SchemaPriv.class))
             .getSchemaPrivilege(user);
-        List<UserDefinition> users = ((UserAdaptor) getMetaAdaptor(User.class)).getUserDefinition(user);
-        List<TablePrivDefinition> tablePrivileges = ((TablePrivAdaptor) getMetaAdaptor(TablePriv.class))
+        List<User> users = ((UserAdaptor) getMetaAdaptor(User.class)).getUser(user);
+        List<TablePriv> tablePrivileges = ((TablePrivAdaptor) getMetaAdaptor(TablePriv.class))
             .getTablePrivilege(user);
+
+        PrivilegeAdaptor privilegeAdaptor = getMetaAdaptor(Privilege.class);
+        List<SchemaPrivDefinition> schemaPrivDefinitions = privilegeAdaptor.schemaPrivDefinitions(schemaPrivileges);
+        List<UserDefinition> userDefinitions = ((PrivilegeAdaptor)getMetaAdaptor(Privilege.class))
+            .userDefinitions(users);
+        List<TablePrivDefinition> tablePrivDefinitions = privilegeAdaptor.tablePrivDefinitions(tablePrivileges);
+
         PrivilegeGather privilegeDefinition = PrivilegeGather.builder()
-            .schemaPrivDefMap(schemaPrivileges)
-            .userDefMap(users)
-            .tablePrivDefMap(tablePrivileges)
+            .schemaPrivDefMap(schemaPrivDefinitions)
+            .userDefMap(userDefinitions)
+            .tablePrivDefMap(tablePrivDefinitions)
             .build();
         return privilegeDefinition;
     }

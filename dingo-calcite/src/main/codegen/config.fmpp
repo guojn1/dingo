@@ -34,6 +34,10 @@ data: {
       "org.apache.calcite.sql.ddl.SqlDdlNodes"
       "io.dingodb.calcite.grammar.ddl.DingoSqlDdlNodes"
       "io.dingodb.calcite.grammar.ddl.SqlTruncate"
+      "io.dingodb.calcite.grammar.ddl.DingoSqlCreateUser"
+      "io.dingodb.calcite.grammar.ddl.DingoSqlDropUser"
+      "io.dingodb.calcite.grammar.ddl.DingoSqlGrant"
+      "io.dingodb.calcite.grammar.ddl.DingoSqlRevoke"
       "io.dingodb.calcite.grammar.SqlUserDefinedOperators"
       "org.apache.calcite.sql2rel.SqlLikeBinaryOperator"
       "java.util.Map"
@@ -90,6 +94,7 @@ data: {
       "SqlDropType"
       "SqlDropView"
       "SqlDropFunction"
+      "SqlDropUser"
     ]
 
     # List of files in @includes directory that have parser method

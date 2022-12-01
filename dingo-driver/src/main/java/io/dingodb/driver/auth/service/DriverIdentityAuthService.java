@@ -83,13 +83,14 @@ public class DriverIdentityAuthService implements AuthService<Authentication> {
                 List<UserDefinition> userDefinitionList = sysInfoServiceApi.getUserDefinition(user);
                 UserDefinition userDef = privilegeVerify.matchUser(host, userDefinitionList);
 
-                if (user == null) {
+                if (userDef == null) {
                     throw new Exception("user is null");
                 }
                 String plugin = userDef.getPlugin();
                 String password = userDef.getPassword();
                 String digestPwd = AlgorithmPlugin.digestAlgorithm(clientPassword, plugin);
                 Certificate certificate = Certificate.builder().code(100).build();
+                log.info("digestPwd:" + digestPwd + ", login pwd:" + password);
                 if (digestPwd.equals(password)) {
                     PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(user);
 

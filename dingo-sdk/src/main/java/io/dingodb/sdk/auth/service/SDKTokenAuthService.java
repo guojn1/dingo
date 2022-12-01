@@ -34,7 +34,7 @@ import java.util.ServiceLoader;
 
 @Slf4j
 public class SDKTokenAuthService implements AuthService<Authentication> {
-    private final static AuthService INSTANCE = new SDKTokenAuthService();
+    private static final AuthService INSTANCE = new SDKTokenAuthService();
 
     private final NetService netService = ServiceLoader.load(NetServiceProvider.class).iterator().next().get();
 

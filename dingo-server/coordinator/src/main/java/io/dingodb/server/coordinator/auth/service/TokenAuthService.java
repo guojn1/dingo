@@ -22,10 +22,12 @@ import io.dingodb.common.auth.Certificate;
 import io.dingodb.common.domain.Domain;
 import io.dingodb.net.service.AuthService;
 import io.dingodb.verify.token.TokenManager;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 public class TokenAuthService implements AuthService<Authentication> {
 
     private static final AuthService INSTANCE = new TokenAuthService();
@@ -55,16 +57,21 @@ public class TokenAuthService implements AuthService<Authentication> {
 
     @Override
     public Object auth(Authentication authentication) throws Exception {
-        if (authentication == null) {
-            return Certificate.builder().code(200).build();
+        try {
+            if (authentication == null) {
+                return Certificate.builder().code(200).build();
+            }
+            String token = authentication.getToken();
+            Map<String, Object> clientInfo = verifyToken(token);
+            if (clientInfo == null) {
+                throw new Exception("xxx");
+            }
+            Certificate certificate = Certificate.builder().code(100).build();
+            return certificate;
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw e;
         }
-        String token = authentication.getToken();
-        Map<String, Object> clientInfo =  verifyToken(token);
-        if (clientInfo == null) {
-            throw new Exception("xxx");
-        }
-        Certificate certificate = Certificate.builder().code(100).build();
-        return certificate;
     }
 
     private Map<String, Object> verifyToken(String token) {
