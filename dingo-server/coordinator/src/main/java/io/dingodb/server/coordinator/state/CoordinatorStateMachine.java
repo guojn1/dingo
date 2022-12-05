@@ -41,8 +41,6 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
-import static io.dingodb.server.coordinator.meta.service.DingoMetaService.ROOT;
-
 @Slf4j
 public class CoordinatorStateMachine implements CoreListener {
 
@@ -104,6 +102,9 @@ public class CoordinatorStateMachine implements CoreListener {
             } catch (IOException e) {
                 log.error("http server error", e);
             }
+
+            // Add permissions to the root user
+            sysInfoServiceApi.saveRootPrivilege("root");
         });
     }
 

@@ -26,12 +26,12 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.experimental.FieldNameConstants;
 
-@Setter
 @Getter
-@NoArgsConstructor
+@Setter
 @Builder
 @ToString
 @FieldNameConstants(asEnum = true)
+@NoArgsConstructor
 @AllArgsConstructor
 @EqualsAndHashCode
 public class User implements Meta {
@@ -41,6 +41,16 @@ public class User implements Meta {
     private String password;
 
     private CommonId id;
+
+    private String sslType;
+    private String sslCipher;
+    private String x509Issuer;
+    private String x509Subject;
+    private String passwordExpired;
+    private String maxQuestions;
+    private String maxUpdates;
+    private String maxConnections;
+    private String maxUserConnections;
 
     @Override
     public void setId(CommonId id) {

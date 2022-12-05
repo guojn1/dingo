@@ -19,15 +19,12 @@ package io.dingodb.server.coordinator.meta.adaptor.impl;
 import com.google.auto.service.AutoService;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.privilege.UserDefinition;
-import io.dingodb.common.util.Optional;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.meta.User;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,16 +45,21 @@ public class UserAdaptor extends BaseAdaptor<User> {
         super(metaStore);
         MetaAdaptorRegistry.register(User.class, this);
         userMap = new ConcurrentHashMap<>();
-        metaMap.forEach((k, v) -> { userMap.put(v.getKey(), v); });
 
-        //do delete
-        User user = User.builder().user("root")
-            .host("%")
-            .plugin("mysql_native_password")
-            .password("cbcce4ebcf0e63f32a3d6904397792720f7e40ba")
-            .build();
-        user.setId(newId(user));
-        userMap.putIfAbsent("root#%", user);
+        // Add root user
+        if (this.metaMap.isEmpty()) {
+            User user = User.builder()
+                .user("root")
+                .host("%")
+                .plugin("mysql_native_password")
+                .password("123123")
+                .build();
+            save(user);
+        }
+
+        metaMap.forEach((k, v) -> {
+            userMap.put(v.getKey(), v);
+        });
     }
 
     @Override
@@ -144,7 +146,7 @@ public class UserAdaptor extends BaseAdaptor<User> {
     public List<User> getUser(String user) {
         return userMap.entrySet().stream()
             .filter(k -> k.getKey().startsWith(user + "#"))
-            .map(Map.Entry :: getValue)
+            .map(Map.Entry::getValue)
             .collect(Collectors.toList());
     }
 

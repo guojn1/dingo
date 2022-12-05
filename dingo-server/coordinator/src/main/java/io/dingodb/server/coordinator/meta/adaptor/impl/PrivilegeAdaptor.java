@@ -87,6 +87,13 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
     }
 
     @Override
+    public CommonId save(Privilege privilege) {
+        CommonId id = super.save(privilege);
+        privilegeMap.computeIfAbsent(privilege.getSubjectId(), k -> new ArrayList<>()).add(privilege);
+        return id;
+    }
+
+    @Override
     protected void doDelete(Privilege meta) {
         super.doDelete(meta);
     }
