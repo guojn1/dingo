@@ -45,7 +45,9 @@ public class TablePrivAdaptor extends BaseAdaptor<TablePriv> {
         MetaAdaptorRegistry.register(TablePriv.class, this);
         tablePrivMap = new ConcurrentHashMap<>();
 
-        metaMap.forEach((k, v) -> { tablePrivMap.put(v.getKey(), v); });
+        metaMap.forEach((k, v) -> {
+            tablePrivMap.put(v.getKey(), v);
+        });
     }
 
     @Override

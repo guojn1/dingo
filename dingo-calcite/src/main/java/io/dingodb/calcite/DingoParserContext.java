@@ -40,6 +40,8 @@ public final class DingoParserContext implements Context {
     @Getter
     private final TimeZone timeZone;
 
+    private Properties options;
+
     public DingoParserContext(@NonNull String defaultSchemaName) {
         this(defaultSchemaName, null);
     }
@@ -59,6 +61,14 @@ public final class DingoParserContext implements Context {
 
         RelProtoDataType mapType = (RelDataTypeFactory factory) -> factory.createSqlType(SqlTypeName.ANY);
         rootSchema.add("map", mapType);
+
+        this.options = options;
+        // Register all the functions
+        /*
+        DingoFunctions.getInstance().getDingoFunctions().forEach(method -> {
+            rootSchema.plus().add(method.getName().toUpperCase(), ScalarFunctionImpl.create(method.getMethod()));
+        });
+         */
     }
 
     @SuppressWarnings("MethodMayBeStatic")
@@ -76,5 +86,9 @@ public final class DingoParserContext implements Context {
             return clazz.cast(timeZone);
         }
         return null;
+    }
+
+    public String getOption(String field) {
+        return options != null ? options.getOrDefault("user", "").toString() : "";
     }
 }

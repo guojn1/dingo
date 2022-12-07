@@ -25,6 +25,5 @@ dependencies {
     api group: 'org.apache.calcite.avatica', name: 'avatica-server', version: 'avatica'.v()
     implementation project(':dingo-calcite')
     implementation project(':dingo-verify')
-    compile project(":dingo-server:dingo-server-protocol")
-    compile project(":dingo-server:dingo-server-client")
+    implementation project(':dingo-meta-api')
 }

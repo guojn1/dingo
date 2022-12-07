@@ -19,12 +19,16 @@ package io.dingodb.server.coordinator.meta.adaptor.impl;
 import com.google.auto.service.AutoService;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.privilege.UserDefinition;
+import io.dingodb.common.util.Optional;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.meta.User;
+import io.dingodb.verify.plugin.AlgorithmPlugin;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,21 +49,18 @@ public class UserAdaptor extends BaseAdaptor<User> {
         super(metaStore);
         MetaAdaptorRegistry.register(User.class, this);
         userMap = new ConcurrentHashMap<>();
-
-        // Add root user
-        if (this.metaMap.isEmpty()) {
-            User user = User.builder()
-                .user("root")
-                .host("%")
-                .plugin("mysql_native_password")
-                .password("123123")
-                .build();
-            save(user);
-        }
-
         metaMap.forEach((k, v) -> {
             userMap.put(v.getKey(), v);
         });
+
+        //do delete
+        User user = User.builder().user("root")
+            .host("%")
+            .plugin("mysql_native_password")
+            .password("cbcce4ebcf0e63f32a3d6904397792720f7e40ba")
+            .build();
+        user.setId(newId(user));
+        userMap.putIfAbsent("root#%", user);
     }
 
     @Override
@@ -115,7 +116,7 @@ public class UserAdaptor extends BaseAdaptor<User> {
     @Override
     protected void doSave(User user) {
         super.doSave(user);
-        userMap.putIfAbsent(user.getKey(), user);
+        userMap.put(user.getKey(), user);
     }
 
     public boolean isExist(UserDefinition userDefinition) {
@@ -167,5 +168,14 @@ public class UserAdaptor extends BaseAdaptor<User> {
             .plugin(definition.getPlugin())
             .password(definition.getPassword())
             .build();
+    }
+
+    public void setPassword(UserDefinition definition) {
+        User user = userMap.get(definition.getKey());
+        String digestPwd = AlgorithmPlugin.digestAlgorithm(definition.getPassword(), user.getPlugin());
+        log.info("origin pwd:" + definition.getPassword() + ", dig pwd:" + digestPwd);
+        user.setPassword(digestPwd);
+        doSave(user);
+        log.info("usermap:" + userMap);
     }
 }

@@ -110,6 +110,7 @@ public class DingoClient {
         this.password = password;
     }
 
+
     /**
      * build connection to dingo database cluster.
      * @return true when connection is built successfully, otherwise false.
@@ -117,7 +118,7 @@ public class DingoClient {
     public boolean open() {
         try {
             Domain.role = DingoRole.SDK_CLIENT;
-            Domain domain = Domain.getInstance();
+            Domain domain = Domain.INSTANCE;
             if (StringUtils.isBlank(user)) {
                 this.user = "root";
                 this.password = "123123";

@@ -16,6 +16,7 @@
 
 package io.dingodb.verify.privilege;
 
+import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.UserDefinition;
 
@@ -38,6 +39,14 @@ public class PrivilegeVerify {
     }
 
     public static boolean isVerify = false;
+
+    public boolean matchHost(PrivilegeDefinition privilegeDefinition, String host) {
+        if ("%".equals(privilegeDefinition.getHost()) || host.equals(privilegeDefinition.getHost())) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 
     public PrivilegeVerify() {
         this(true);

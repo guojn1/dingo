@@ -46,21 +46,17 @@ public class SDKIdentityAuthService implements AuthService<Authentication> {
 
     @Override
     public Authentication createAuthentication() {
-        if (Domain.role == DingoRole.SDK_CLIENT) {
-            Domain domain = Domain.getInstance();
-            String user = domain.getInfo("user").toString();
-            String host = getHost();
-            String password = domain.getInfo("password").toString();
+        Domain domain = Domain.INSTANCE;
+        String user = (String) domain.getInfo("user");
+        String host = getHost();
+        String password = (String) domain.getInfo("password");
 
-            Authentication authentication = Authentication.builder()
-                .username(user)
-                .host(host)
-                .role(Domain.role)
-                .password(password).build();
-            return authentication;
-        } else {
-            return null;
-        }
+        Authentication authentication = Authentication.builder()
+            .username(user)
+            .host(host)
+            .role(Domain.role)
+            .password(password).build();
+        return authentication;
     }
 
     @Override

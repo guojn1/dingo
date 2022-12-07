@@ -63,16 +63,12 @@ public class DriverTokenAuthService implements AuthService<Authentication> {
         if (authentication == null) {
             return Certificate.builder().code(200).build();
         }
-        if (authentication.getRole() == DingoRole.EXECUTOR) {
-            String token = authentication.getToken();
-            Map<String, Object> clientInfo = verifyToken(token);
-            if (clientInfo == null) {
-                throw new Exception("xxx");
-            }
-            return Certificate.builder().code(100).build();
-        } else {
-            return Certificate.builder().code(200).build();
+        String token = authentication.getToken();
+        Map<String, Object> clientInfo = verifyToken(token);
+        if (clientInfo == null) {
+            throw new Exception("auth token error");
         }
+        return Certificate.builder().code(100).build();
     }
 
     private Map<String, Object> verifyToken(String token) {

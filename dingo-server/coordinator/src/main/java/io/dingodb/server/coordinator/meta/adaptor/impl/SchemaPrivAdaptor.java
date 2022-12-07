@@ -45,7 +45,9 @@ public class SchemaPrivAdaptor extends BaseAdaptor<SchemaPriv> {
         MetaAdaptorRegistry.register(SchemaPriv.class, this);
         schemaPrivMap = new ConcurrentHashMap<>();
 
-        metaMap.forEach((k, v) -> { schemaPrivMap.put(v.getKey(), v); } );
+        metaMap.forEach((k, v) -> {
+            schemaPrivMap.put(v.getKey(), v);
+        } );
     }
 
     @Override
@@ -81,7 +83,9 @@ public class SchemaPrivAdaptor extends BaseAdaptor<SchemaPriv> {
 
     public List<SchemaPriv> getSchemaPrivilege(String user) {
         return schemaPrivMap.entrySet().stream()
-            .filter(k -> { return k.getKey().startsWith(user + "#"); })
+            .filter(k -> {
+                return k.getKey().startsWith(user + "#");
+            })
             .map(Map.Entry :: getValue)
             .collect(Collectors.toList());
     }

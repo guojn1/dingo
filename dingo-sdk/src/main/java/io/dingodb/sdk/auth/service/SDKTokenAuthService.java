@@ -55,7 +55,7 @@ public class SDKTokenAuthService implements AuthService<Authentication> {
     @Override
     public Authentication createAuthentication() {
         // sdk token auth depend on identity auth by coordinator
-        if (Domain.role == DingoRole.SDK_CLIENT && CoordinatorConnector.getDefault().verify()) {
+        if (CoordinatorConnector.getDefault().verify()) {
             String token = getToken();
             log.info("sdk token auth:" + token);
             if (StringUtils.isNotBlank(token)) {

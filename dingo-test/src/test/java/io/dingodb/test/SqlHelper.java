@@ -62,8 +62,8 @@ public class SqlHelper {
 
     public SqlHelper() throws Exception {
         Domain.role = DingoRole.JDBC_CLIENT;
-        Domain.getInstance().setInfo("user", "root");
-        Domain.getInstance().setInfo("password", "123123");
+        Domain.INSTANCE.setInfo("user", "root");
+        Domain.INSTANCE.setInfo("password", "123123");
         // Configure for local test.
         if (DingoConfiguration.instance() == null) {
             DingoConfiguration.parse(

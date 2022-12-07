@@ -75,7 +75,7 @@ public class DingoDriverClient extends Driver {
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
         Domain.role = DingoRole.JDBC_CLIENT;
-        Domain domain = Domain.getInstance();
+        Domain domain = Domain.INSTANCE;
         if ((props = this.parseURL(url, info)) == null) {
             throw new IllegalArgumentException("Bad url: " + url);
         } else {

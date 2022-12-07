@@ -22,11 +22,11 @@ import io.dingodb.common.auth.Certificate;
 import io.dingodb.common.auth.DingoRole;
 import io.dingodb.common.domain.Domain;
 import io.dingodb.common.privilege.PrivilegeGather;
+import io.dingodb.meta.SysInfoService;
+import io.dingodb.meta.SysInfoServiceProvider;
 import io.dingodb.net.NetService;
 import io.dingodb.net.NetServiceProvider;
 import io.dingodb.net.service.AuthService;
-import io.dingodb.server.api.SysInfoServiceApi;
-import io.dingodb.server.client.connector.impl.CoordinatorConnector;
 import io.dingodb.verify.token.TokenManager;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,11 +50,9 @@ public class TokenAuthService implements AuthService<Authentication> {
         }
     }
 
-    private SysInfoServiceApi sysInfoServiceApi;
+    private SysInfoService sysInfoService;
 
     public TokenAuthService() {
-        this.sysInfoServiceApi = netService.apiRegistry().proxy(SysInfoServiceApi.class,
-            CoordinatorConnector.getDefault());
     }
 
     @Override
@@ -77,17 +75,21 @@ public class TokenAuthService implements AuthService<Authentication> {
             if (authentication == null) {
                 return Certificate.builder().code(200).build();
             }
+            if (sysInfoService == null) {
+                sysInfoService = (SysInfoService) SysInfoServiceProvider.getRoot();
+            }
             String token = authentication.getToken();
             Map<String, Object> clientInfo = verifyToken(token);
             if (clientInfo == null) {
-                throw new Exception("xxx");
+                throw new Exception("auth token error");
             }
             Certificate certificate = Certificate.builder().code(100).build();
             DingoRole clientRole = authentication.getRole();
             DingoRole role = Domain.role;
             if (clientRole == DingoRole.SDK_CLIENT && role == DingoRole.EXECUTOR) {
                 String user = (String) clientInfo.getOrDefault("user", "");
-                PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(user);
+                PrivilegeGather privilegeGather = Domain.INSTANCE.privilegeGatherMap.computeIfAbsent(user,
+                    k -> sysInfoService.getPrivilegeDef(null, user));
                 certificate.setPrivilegeGather(privilegeGather);
             }
 

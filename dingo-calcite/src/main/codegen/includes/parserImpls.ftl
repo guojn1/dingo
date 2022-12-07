@@ -243,28 +243,20 @@ SqlCreate SqlCreateType(Span s, boolean replace) :
 }
 SqlCreate SqlCreateUser(Span s, boolean replace) :
 {
-    final SqlIdentifier userIdentifier;
     final String user;
-    String passwordStr = "";
+    String password = "";
     String host = "%";
-    final SqlIdentifier password;
     SqlNode create = null;
     Boolean ifNotExists = false;
 }
 {
     <USER> ifNotExists = IfNotExistsOpt()
-    [ <QUOTED_STRING> { user = token.image; }
-     [ <ATSPLIT> <QUOTED_STRING> { host = token.image; } ]
-     <IDENTIFIED> <BY>  <QUOTED_STRING> { passwordStr = token.image; }
-        {
-            return new DingoSqlCreateUser(user, passwordStr, host, s.end(this), replace, ifNotExists);
-        }
-    ]
-    userIdentifier = CompoundIdentifier()
-    [ <ATSPLIT> <QUOTED_STRING> { host = token.image; } ]
-    <IDENTIFIED> <BY>  <QUOTED_STRING> { passwordStr = token.image; }
+    ( <QUOTED_STRING> | <IDENTIFIER> )
+     { user = token.image; }
+    [ <ATSPLIT> (<QUOTED_STRING> | <IDENTIFIER>) { host = token.image; }  ]
+    <IDENTIFIED> <BY>  <QUOTED_STRING> { password = token.image; }
     {
-       return new DingoSqlCreateUser(userIdentifier.getSimple(), passwordStr, host, s.end(this), replace, ifNotExists);
+       return new SqlCreateUser(user, password, host, s.end(this), replace, ifNotExists);
     }
 }
 
@@ -550,19 +542,16 @@ SqlDrop SqlDropUser(Span s, boolean replace) :
 {
     final boolean ifExists;
     final SqlIdentifier name;
-    String username;
+    String user;
     String host = "%";
 }
 {
     <USER> ifExists = IfExistsOpt()
-    [ <QUOTED_STRING> { username = token.image; }
-      [ <ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
-      { return new DingoSqlDropUser(s.end(this), ifExists, username, host); }
-    ]
-    name = CompoundIdentifier()
-    [ <ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+    ( <QUOTED_STRING> | <IDENTIFIER> )
+    { user = token.image; }
+    [ <ATSPLIT> (<QUOTED_STRING> | <IDENTIFIER> ) { host = token.image;} ]
     {
-        return new DingoSqlDropUser(s.end(this), ifExists, name.getSimple(), host);
+        return new SqlDropUser(s.end(this), ifExists, user, host);
     }
 }
 
@@ -600,7 +589,7 @@ SqlDrop SqlDropFunction(Span s, boolean replace) :
     }
 }
 
-DingoSqlGrant SqlGrant() : {
+SqlGrant SqlGrant() : {
  final Span s;
  final SqlIdentifier subject;
  boolean isAllPrivileges = false;
@@ -613,34 +602,19 @@ DingoSqlGrant SqlGrant() : {
    <GRANT> { s = span(); }
    [ <ALL> <PRIVILEGES> { isAllPrivileges = true; } ]
    [
-     privilege = privilege() {
-       if (privilege != null && !"".equals(privilege)) {
-         privilegeList.add(privilege);
-       }
-     }
+     privilege = privilege() { privilegeList.add(privilege); }
      (
-       <COMMA> privilege = privilege()
-       {
-         if (privilege != null && !"".equals(privilege)) {
-            privilegeList.add(privilege);
-         }
-       }
+       <COMMA> privilege = privilege() { privilegeList.add(privilege); }
      )*
    ]
    <ON>
    subject = getSchemaTable()
    <TO>
-    [
-         <QUOTED_STRING> { user = token.image; }
-         [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
-         {
-         return new DingoSqlGrant(s.end(this), isAllPrivileges, privilegeList, subject, user, host);
-         }
-    ]
-    userIdentifier = CompoundIdentifier() { user = userIdentifier.getSimple(); }
-    [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+   ( <QUOTED_STRING> | <IDENTIFIER> )
+   { user = token.image; }
+    [<ATSPLIT> (<QUOTED_STRING>|<IDENTIFIER>) { host = token.image;} ]
     {
-        return new DingoSqlGrant(s.end(this), isAllPrivileges, privilegeList, subject, userIdentifier.getSimple(), host);
+        return new SqlGrant(s.end(this), isAllPrivileges, privilegeList, subject, user, host);
     }
 }
 
@@ -758,12 +732,11 @@ void schemaTableSegment(List<String> names, List<SqlParserPos> positions) :
     }
 }
 
-DingoSqlRevoke SqlRevoke() : {
+SqlRevoke SqlRevoke() : {
  final Span s;
  SqlIdentifier subject = null;
  boolean isAllPrivileges = false;
- SqlIdentifier userIdentifier;
- String user;
+ String user = "";
  String host = "%";
  String privilege = "";
  List<String> privilegeList = new ArrayList();
@@ -771,34 +744,20 @@ DingoSqlRevoke SqlRevoke() : {
    <REVOKE> { s = span(); }
    [ <ALL> <PRIVILEGES> { isAllPrivileges = true; } ]
    [
-     privilege = privilege() {
-       if (privilege != null && !"".equals(privilege)) {
-         privilegeList.add(privilege);
-       }
-     }
+     privilege = privilege() { privilegeList.add(privilege); }
      (
        <COMMA> privilege = privilege()
-       {
-         if (privilege != null && !"".equals(privilege)) {
-            privilegeList.add(privilege);
-         }
-       }
+       { privilegeList.add(privilege); }
      )*
    ]
    <ON>
    subject = getSchemaTable()
    <FROM>
-    [
-         <QUOTED_STRING> { user = token.image; }
-         [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
-         {
-         return new DingoSqlRevoke(s.end(this), isAllPrivileges, privilegeList, subject, user, host);
-         }
-    ]
-    userIdentifier = CompoundIdentifier() { user = userIdentifier.getSimple(); }
-    [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+    ( <QUOTED_STRING> | <IDENTIFIER> )
+    { user = user = token.image; }
+    [<ATSPLIT> (<QUOTED_STRING> | <IDENTIFIER>) {host = token.image; } ]
     {
-        return new DingoSqlRevoke(s.end(this), isAllPrivileges, privilegeList, subject, userIdentifier.getSimple(), host);
+        return new SqlRevoke(s.end(this), isAllPrivileges, privilegeList, subject, user, host);
     }
 }
 
@@ -825,6 +784,33 @@ String privilege() : {
     [ <VIEW> { return "create_view"; }]
     [ <USER> { return "create_user"; }]
     { return token.image; }
+}
+
+SqlFlushPrivileges SqlFlush ():{
+  final Span s;
+} {
+   <FLUSH> { s = span(); } <PRIVILEGES> { return new SqlFlushPrivileges(s.end(this)); }
+}
+
+SqlShow SqlShow(): {
+  final Span s;
+  SqlIdentifier userIdentifier;
+  String user = null;
+  String host = "%";
+} {
+  <SHOW> { s = span(); } <GRANTS> <FOR>
+  [
+       <QUOTED_STRING> { user = token.image; }
+       [<ATSPLIT> <QUOTED_STRING> { host = token.image;} ]
+       {
+       return new SqlShowGrants(s.end(this), user, host);
+       }
+  ]
+  userIdentifier = CompoundIdentifier() { user = userIdentifier.getSimple(); }
+  [<ATSPLIT> (<QUOTED_STRING> | <IDENTIFIER>) {host = token.image; } ]
+  {
+    return new SqlShowGrants(s.end(this), user, host);
+  }
 }
 
 

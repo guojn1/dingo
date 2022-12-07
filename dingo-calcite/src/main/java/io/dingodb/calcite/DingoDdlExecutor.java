@@ -17,14 +17,20 @@
 package io.dingodb.calcite;
 
 import io.dingodb.calcite.grammar.ddl.DingoSqlCreateTable;
-import io.dingodb.calcite.grammar.ddl.DingoSqlCreateUser;
-import io.dingodb.calcite.grammar.ddl.DingoSqlDropUser;
-import io.dingodb.calcite.grammar.ddl.DingoSqlGrant;
-import io.dingodb.calcite.grammar.ddl.DingoSqlRevoke;
+import io.dingodb.calcite.grammar.ddl.SqlCreateUser;
+import io.dingodb.calcite.grammar.ddl.SqlDropUser;
+import io.dingodb.calcite.grammar.ddl.SqlFlushPrivileges;
+import io.dingodb.calcite.grammar.ddl.SqlGrant;
+import io.dingodb.calcite.grammar.ddl.SqlRevoke;
+import io.dingodb.calcite.grammar.ddl.SqlSetPassword;
+import io.dingodb.calcite.grammar.ddl.SqlShowGrants;
 import io.dingodb.calcite.grammar.ddl.SqlTruncate;
 import io.dingodb.common.partition.PartitionDetailDefinition;
 import io.dingodb.common.partition.PartitionDefinition;
 import io.dingodb.common.privilege.PrivilegeDefinition;
+import io.dingodb.common.privilege.PrivilegeDict;
+import io.dingodb.common.privilege.PrivilegeGather;
+import io.dingodb.common.privilege.PrivilegeList;
 import io.dingodb.common.privilege.PrivilegeType;
 import io.dingodb.common.privilege.SchemaPrivDefinition;
 import io.dingodb.common.privilege.TablePrivDefinition;
@@ -34,9 +40,8 @@ import io.dingodb.common.table.TableDefinition;
 import io.dingodb.common.type.converter.StrParseConverter;
 import io.dingodb.common.util.Optional;
 import io.dingodb.common.util.Parameters;
-import io.dingodb.net.NetService;
-import io.dingodb.server.api.SysInfoServiceApi;
-import io.dingodb.server.client.connector.impl.CoordinatorConnector;
+import io.dingodb.meta.SysInfoService;
+import io.dingodb.meta.SysInfoServiceProvider;
 import io.dingodb.verify.plugin.AlgorithmPlugin;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -57,6 +62,7 @@ import org.apache.calcite.sql.ddl.SqlCreateTable;
 import org.apache.calcite.sql.ddl.SqlDropTable;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.Pair;
@@ -65,9 +71,11 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.apache.calcite.util.Static.RESOURCE;
 
@@ -75,11 +83,10 @@ import static org.apache.calcite.util.Static.RESOURCE;
 public class DingoDdlExecutor extends DdlExecutorImpl {
     public static final DingoDdlExecutor INSTANCE = new DingoDdlExecutor();
 
-    public SysInfoServiceApi sysInfoServiceApi;
+    public SysInfoService sysInfoService;
 
     private DingoDdlExecutor() {
-        this.sysInfoServiceApi = NetService.getDefault().apiRegistry().proxy(SysInfoServiceApi.class,
-            CoordinatorConnector.getDefault());
+        this.sysInfoService = (SysInfoService) SysInfoServiceProvider.getRoot();
     }
 
     private static @Nullable ColumnDefinition fromSqlColumnDeclaration(
@@ -277,7 +284,8 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
 
     }
 
-    public void execute(@NonNull DingoSqlGrant sqlGrant, CalcitePrepare.Context context) {
+
+    public void execute(@NonNull SqlGrant sqlGrant, CalcitePrepare.Context context) {
         log.info("DDL execute: {}", sqlGrant);
         if (!"*".equals(sqlGrant.table)) {
             SqlIdentifier name = sqlGrant.tableIdentifier;
@@ -289,15 +297,15 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
                 throw new RuntimeException("table doesn't exist");
             }
         }
-        if (sysInfoServiceApi.existsUser(UserDefinition.builder().user(sqlGrant.user).host(sqlGrant.host).build())) {
+        if (sysInfoService.existsUser(UserDefinition.builder().user(sqlGrant.user).host(sqlGrant.host).build())) {
             PrivilegeDefinition privilegeDefinition = getPrivilegeDefinition(sqlGrant);
-            sysInfoServiceApi.grant(privilegeDefinition);
+            sysInfoService.grant(privilegeDefinition);
         } else {
             throw new RuntimeException("You are not allowed to create a user with GRANT");
         }
     }
 
-    public void execute(@NonNull DingoSqlRevoke sqlRevoke, CalcitePrepare.Context context) {
+    public void execute(@NonNull SqlRevoke sqlRevoke, CalcitePrepare.Context context) {
         log.info("DDL execute: {}", sqlRevoke);
         if (!"*".equals(sqlRevoke.table)) {
             SqlIdentifier name = sqlRevoke.tableIdentifier;
@@ -309,33 +317,179 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
                 throw new RuntimeException("table doesn't exist");
             }
         }
-        if (sysInfoServiceApi.existsUser(UserDefinition.builder().user(sqlRevoke.user).host(sqlRevoke.host).build())) {
+        if (sysInfoService.existsUser(UserDefinition.builder().user(sqlRevoke.user).host(sqlRevoke.host).build())) {
             PrivilegeDefinition privilegeDefinition = getPrivilegeDefinition(sqlRevoke);
-            sysInfoServiceApi.revoke(privilegeDefinition);
+            sysInfoService.revoke(privilegeDefinition);
         } else {
             throw new RuntimeException("You are not allowed to create a user with GRANT");
         }
     }
 
-    public void execute(@NonNull DingoSqlCreateUser sqlCreateUser, CalcitePrepare.Context context) {
+    public void execute(@NonNull SqlCreateUser sqlCreateUser, CalcitePrepare.Context context) {
         log.info("DDL execute: {}", sqlCreateUser);
         UserDefinition userDefinition = UserDefinition.builder().user(sqlCreateUser.user)
             .host(sqlCreateUser.host).build();
-        if (sysInfoServiceApi.existsUser(userDefinition)) {
+        if (sysInfoService.existsUser(userDefinition)) {
             throw new RuntimeException("user is exists");
         } else {
             userDefinition.setPlugin("mysql_native_password");
             String digestPwd = AlgorithmPlugin.digestAlgorithm(sqlCreateUser.password, userDefinition.getPlugin());
             userDefinition.setPassword(digestPwd);
-            sysInfoServiceApi.createUser(userDefinition);
+            sysInfoService.createUser(userDefinition);
         }
     }
 
-    public void execute(@NonNull DingoSqlDropUser sqlDropUser, CalcitePrepare.Context context) {
+    public void execute(@NonNull SqlDropUser sqlDropUser, CalcitePrepare.Context context) {
         log.info("DDL execute: {}", sqlDropUser);
         UserDefinition userDefinition = UserDefinition.builder().user(sqlDropUser.name).host(sqlDropUser.host).build();
-        sysInfoServiceApi.dropUser(userDefinition);
+        sysInfoService.dropUser(userDefinition);
     }
+
+    public void execute(@NonNull SqlFlushPrivileges dingoFlushPrivileges, CalcitePrepare.Context context) {
+        sysInfoService.flushPrivileges();
+    }
+
+    public void execute(@NonNull SqlSetPassword sqlSetPassword, CalcitePrepare.Context context) {
+        UserDefinition userDefinition = UserDefinition.builder()
+            .user(sqlSetPassword.user)
+            .host(sqlSetPassword.host)
+            .build();
+        if (sysInfoService.existsUser(userDefinition)) {
+            userDefinition.setPassword(sqlSetPassword.password);
+            sysInfoService.setPassword(userDefinition);
+        } else {
+            throw new RuntimeException("user is not exist");
+        }
+    }
+
+    public void execute(@NonNull SqlShowGrants dingoSqlShowGrants, CalcitePrepare.Context context) {
+        PrivilegeGather privilegeGather = sysInfoService.getPrivilegeDef(null, dingoSqlShowGrants.user);
+        List<SchemaPrivDefinition> schemaPrivDefinitions = privilegeGather.getSchemaPrivDefMap();
+        List<TablePrivDefinition> tablePrivDefinitions = privilegeGather.getTablePrivDefMap();
+        List<UserDefinition> userDefinitions = privilegeGather.getUserDefMap();
+
+        schemaPrivDefinitions = schemaPrivDefinitions.stream().filter(schemaPrivDefinition -> {
+            return schemaPrivDefinition.getHost().equals(dingoSqlShowGrants.host);
+        }).collect(Collectors.toList());
+        tablePrivDefinitions = tablePrivDefinitions.stream().filter(tablePrivDefinition -> {
+            return tablePrivDefinition.getHost().equals(dingoSqlShowGrants.host);
+        }).collect(Collectors.toList());
+        userDefinitions = userDefinitions.stream().filter(userDefinition -> {
+            return userDefinition.getHost().equals(dingoSqlShowGrants.host);
+        }).collect(Collectors.toList());
+
+        if (userDefinitions.size() == 0) {
+            return;
+        }
+
+        List<SqlGrant> dingoSqlGrants = new ArrayList<>();
+        SqlGrant userGrant = null;
+        if ((userGrant = getUserGrant(dingoSqlShowGrants, userDefinitions)) != null) {
+            dingoSqlGrants.add(userGrant);
+        }
+        dingoSqlGrants.addAll(getSchemaGrant(dingoSqlShowGrants, schemaPrivDefinitions));
+        dingoSqlGrants.addAll(getTableGrant(dingoSqlShowGrants, tablePrivDefinitions));
+
+        //DingoSqlGrant sqlGrant = new DingoSqlGrant();
+    }
+
+    public SqlGrant getUserGrant(@NonNull SqlShowGrants dingoSqlShowGrants, List<UserDefinition> userDefinitions) {
+        List<Boolean> userPrivileges = Arrays.asList(userDefinitions.get(0).getPrivileges());
+        long count = userPrivileges.stream()
+            .filter(isPrivilege -> isPrivilege).count();
+
+        if (count > 0) {
+            boolean isAllPrivilege = false;
+            List<String> privileges = null;
+            if (count == PrivilegeList.privilegeMap.get(PrivilegeType.USER).size()) {
+                isAllPrivilege = true;
+            } else {
+                List<Integer> indexs =  new ArrayList<>();
+                Stream.iterate(0, i -> i + 1).limit(userPrivileges.size()).forEach(i -> {
+                    if (userPrivileges.get(i)) {
+                        indexs.add(i);
+                    }
+                });
+                privileges = PrivilegeDict.getPrivilege(indexs);
+            }
+            SqlIdentifier subject = new SqlIdentifier(Arrays.asList("*", "*"), null, null,
+                new ArrayList<SqlParserPos>());
+            SqlGrant sqlGrant = new SqlGrant(null, isAllPrivilege, privileges, subject,
+                dingoSqlShowGrants.user, dingoSqlShowGrants.host);
+            log.info("user sqlGrant:" + sqlGrant.toString());
+            return sqlGrant;
+        }
+        return null;
+    }
+
+    public List<SqlGrant> getSchemaGrant(@NonNull SqlShowGrants dingoSqlShowGrants,
+                                        List<SchemaPrivDefinition> schemaPrivDefinitions) {
+        List<SqlGrant> sqlGrants = new ArrayList<>();
+        for (SchemaPrivDefinition schemaPrivDefinition : schemaPrivDefinitions) {
+            List<Boolean> schemaPrivileges = Arrays.asList(schemaPrivDefinition.getPrivileges());
+            long count = schemaPrivileges.stream()
+                .filter(isPrivilege -> isPrivilege).count();
+
+            if (count > 0) {
+                boolean isAllPrivilege = false;
+                List<String> privileges = null;
+                if (count == PrivilegeList.privilegeMap.get(PrivilegeType.SCHEMA).size()) {
+                    isAllPrivilege = true;
+                } else {
+                    List<Integer> indexs = new ArrayList<>();
+                    Stream.iterate(0, i -> i + 1).limit(schemaPrivileges.size()).forEach(i -> {
+                        if (schemaPrivileges.get(i)) {
+                            indexs.add(i);
+                        }
+                    });
+                    privileges = PrivilegeDict.getPrivilege(indexs);
+                }
+                SqlIdentifier subject = new SqlIdentifier(Arrays.asList(schemaPrivDefinition.getSchema(), "*"),
+                    null, null,
+                    new ArrayList<SqlParserPos>());
+                SqlGrant sqlGrant = new SqlGrant(null, isAllPrivilege, privileges, subject,
+                    dingoSqlShowGrants.user, dingoSqlShowGrants.host);
+                log.info("schema sqlGrant:" + sqlGrant.toString());
+                sqlGrants.add(sqlGrant);
+            }
+        }
+        return sqlGrants;
+    }
+
+    public List<SqlGrant> getTableGrant(@NonNull SqlShowGrants dingoSqlShowGrants,
+                                       List<TablePrivDefinition> tablePrivDefinitions) {
+        List<SqlGrant> sqlGrants = new ArrayList<>();
+        for (TablePrivDefinition tablePrivDefinition : tablePrivDefinitions) {
+            List<Boolean> userPrivileges = Arrays.asList(tablePrivDefinition.getPrivileges());
+            long count = userPrivileges.stream()
+                .filter(isPrivilege -> isPrivilege).count();
+
+            if (count > 0) {
+                boolean isAllPrivilege = false;
+                List<String> privileges = null;
+                if (count == PrivilegeList.privilegeMap.get(PrivilegeType.USER).size()) {
+                    isAllPrivilege = true;
+                } else {
+                    List<Integer> indexs = new ArrayList<>();
+                    Stream.iterate(0, i -> i + 1).limit(userPrivileges.size()).forEach(i -> {
+                        if (userPrivileges.get(i)) {
+                            indexs.add(i);
+                        }
+                    });
+                    privileges = PrivilegeDict.getPrivilege(indexs);
+                }
+                SqlIdentifier subject = new SqlIdentifier(Arrays.asList(tablePrivDefinition.getSchema(),
+                    tablePrivDefinition.getTable()), null, null,
+                    new ArrayList<SqlParserPos>());
+                SqlGrant sqlGrant = new SqlGrant(null, isAllPrivilege, privileges, subject,
+                    dingoSqlShowGrants.user, dingoSqlShowGrants.host);
+                log.info("table sqlGrant:" + sqlGrant.toString());
+                sqlGrants.add(sqlGrant);
+            }
+        }
+        return sqlGrants;
+    }
+
 
     public void validatePartitionBy(
         @NonNull List<String> keyList,
@@ -373,7 +527,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
     }
 
     @NonNull
-    private PrivilegeDefinition getPrivilegeDefinition(@NonNull DingoSqlGrant sqlGrant) {
+    private PrivilegeDefinition getPrivilegeDefinition(@NonNull SqlGrant sqlGrant) {
         String table = sqlGrant.table;
         String schema = sqlGrant.schema;
         PrivilegeDefinition privilegeDefinition = null;

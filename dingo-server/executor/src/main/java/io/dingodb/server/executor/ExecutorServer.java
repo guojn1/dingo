@@ -142,6 +142,7 @@ public class ExecutorServer {
     private NetService loadNetService() {
         NetService netService = ServiceLoader.load(NetServiceProvider.class).iterator().next().get();
         Services.initNetService();
+        Services.initReloadService();
         return netService;
     }
 

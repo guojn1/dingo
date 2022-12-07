@@ -50,6 +50,13 @@ public class MetaServiceClient implements MetaService {
     }
 
     public MetaServiceClient(CoordinatorConnector connector) {
+        if (connector == null) {
+            this.api = null;
+            this.connector = null;
+            this.id = null;
+            this.name = null;
+            return;
+        }
         this.api = ApiRegistry.getDefault().proxy(MetaServiceApi.class, connector);
         this.connector = connector;
         this.id = api.rootId();

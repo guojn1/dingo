@@ -17,8 +17,7 @@
 package io.dingodb.calcite;
 
 import io.dingodb.calcite.grammar.ddl.DingoSqlCreateTable;
-import io.dingodb.common.partition.DingoPartDetail;
-import io.dingodb.common.partition.DingoTablePart;
+import io.dingodb.calcite.grammar.ddl.SqlSetPassword;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -69,11 +68,6 @@ public class TestCreateTable {
             DingoSqlCreateTable dingoSqlCreateTable = (DingoSqlCreateTable) sqlNode;
             parseCreateTable(dingoSqlCreateTable);
             System.out.println("---------------->" + dingoSqlCreateTable.toString());
-            System.out.println("---------------->" + dingoSqlCreateTable.getAttrMap());
-            DingoTablePart part = dingoSqlCreateTable.getDingoTablePart();
-            System.out.println("---------------->cols:" + part.getCols());
-            System.out.println("---------------->partType:" + dingoSqlCreateTable.getPartType());
-
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -93,10 +87,6 @@ public class TestCreateTable {
             DingoSqlCreateTable dingoSqlCreateTable = (DingoSqlCreateTable) sqlNode;
             parseCreateTable(dingoSqlCreateTable);
             System.out.println("---------------->" + dingoSqlCreateTable.toString());
-            System.out.println("---------------->" + dingoSqlCreateTable.getAttrMap());
-            DingoTablePart part = dingoSqlCreateTable.getDingoTablePart();
-            System.out.println("---------------->cols:" + part.getCols());
-            System.out.println("---------------->partType:" + dingoSqlCreateTable.getPartType());
 
 
         } catch (Exception e) {
@@ -121,7 +111,7 @@ public class TestCreateTable {
 
     @Test
     public void createUserWithLocation() {
-        String sql = "CREATE USER 'gj'@'192.168.22.22' IDENTIFIED BY 'abc'";
+        String sql = "CREATE USER 'gj'@localhost IDENTIFIED BY 'abc'";
         SqlParser.Config config = SqlParser.config().withParserFactory(DingoSqlParserImpl::new);
         SqlParser parser = SqlParser.create(sql, config);
         try {
@@ -135,7 +125,7 @@ public class TestCreateTable {
 
     @Test
     public void dropUser() {
-        String sql = "drop USER gj";
+        String sql = "drop USER gj@localhost";
         SqlParser.Config config = SqlParser.config().withParserFactory(DingoSqlParserImpl::new);
         SqlParser parser = SqlParser.create(sql, config);
         try {
@@ -163,7 +153,7 @@ public class TestCreateTable {
 
     @Test
     public void grant2() {
-        String sql = "grant select,update on *.* to 'gjn'";
+        String sql = "grant select,update on *.* to gjn";
         SqlParser.Config config = SqlParser.config().withParserFactory(DingoSqlParserImpl::new);
         SqlParser parser = SqlParser.create(sql, config);
         try {
@@ -177,7 +167,7 @@ public class TestCreateTable {
 
     @Test
     public void revoke() {
-        String sql = "revoke select,update on dingo.userinfo from 'gjn'";
+        String sql = "revoke select,update on dingo.userinfo from 'gjn'@'localhost'";
         SqlParser.Config config = SqlParser.config().withParserFactory(DingoSqlParserImpl::new);
         SqlParser parser = SqlParser.create(sql, config);
         try {
@@ -187,6 +177,40 @@ public class TestCreateTable {
             e.printStackTrace();
             throw new RuntimeException(e);
         }
+    }
+
+    @Test
+    public void flush() {
+        String sql = "flush privileges";
+        SqlParser.Config config = SqlParser.config().withParserFactory(DingoSqlParserImpl::new);
+        SqlParser parser = SqlParser.create(sql, config);
+        try {
+            SqlNode sqlNode = parser.parseStmt();
+            System.out.println("---> sqlNode:" + sqlNode);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    public void setPassword() {
+        String sql = "set password for gjn = password('123')";
+        SqlParser.Config config = SqlParser.config().withParserFactory(DingoSqlParserImpl::new);
+        SqlParser parser = SqlParser.create(sql, config);
+        try {
+            SqlNode sqlNode = parser.parseStmt();
+            SqlSetPassword sqlSetPassword = (SqlSetPassword) sqlNode;
+            System.out.println(sqlSetPassword.user + ", host:" + sqlSetPassword.host + ",pwd" + sqlSetPassword.password);
+            System.out.println("---> sqlNode:" + sqlNode);
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void main(String[] args) {
+        System.out.println("---");
     }
 
 }

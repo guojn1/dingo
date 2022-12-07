@@ -18,14 +18,20 @@ package io.dingodb.server.coordinator.meta.adaptor.impl;
 
 import com.google.auto.service.AutoService;
 import io.dingodb.common.CommonId;
+import io.dingodb.common.codec.ProtostuffCodec;
 import io.dingodb.common.privilege.PrivilegeDefinition;
+import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.PrivilegeType;
 import io.dingodb.common.privilege.SchemaPrivDefinition;
 import io.dingodb.common.privilege.TablePrivDefinition;
 import io.dingodb.common.privilege.UserDefinition;
 import io.dingodb.common.util.Optional;
+import io.dingodb.net.Channel;
+import io.dingodb.net.Message;
+import io.dingodb.net.NetService;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
+import io.dingodb.server.protocol.Tags;
 import io.dingodb.server.protocol.meta.Privilege;
 import io.dingodb.server.protocol.meta.SchemaPriv;
 import io.dingodb.server.protocol.meta.TablePriv;
@@ -37,8 +43,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
+import static io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry.getMetaAdaptor;
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
 import static io.dingodb.server.protocol.CommonIdConstant.PRIVILEGE_IDENTIFIER;
 
@@ -49,12 +57,18 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
 
     protected final Map<CommonId, List<Privilege>> privilegeMap;
 
+    public List<String> flushPrivileges = new CopyOnWriteArrayList<>();
+
+    public List<Channel> channels = new CopyOnWriteArrayList<>();
+
     public PrivilegeAdaptor(MetaStore metaStore) {
         super(metaStore);
         MetaAdaptorRegistry.register(Privilege.class, this);
         privilegeMap = new ConcurrentHashMap<>();
 
         metaMap.forEach((k, v) -> privilegeMap.computeIfAbsent(v.getSubjectId(), p -> new ArrayList<>()).add(v));
+
+        NetService.getDefault().registerTagMessageListener(Tags.LISTEN_RELOAD_PRIVILEGES, this::flushPrivileges);
     }
 
     @AutoService(BaseAdaptor.Creator.class)
@@ -86,11 +100,18 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         privilegeMap.computeIfAbsent(privilege.getSubjectId(), k -> new ArrayList<>()).add(privilege);
     }
 
-    @Override
-    public CommonId save(Privilege privilege) {
-        CommonId id = super.save(privilege);
-        privilegeMap.computeIfAbsent(privilege.getSubjectId(), k -> new ArrayList<>()).add(privilege);
-        return id;
+    private void flushPrivileges(Message message, Channel channel) {
+        log.info("flush privileges, user:" + flushPrivileges.size() + ", channel size:" + channels.size());
+        flushPrivileges.forEach(user -> {
+            channels.forEach(channel1 -> {
+                PrivilegeGather privilegeGather = getPrivilegeGather(user);
+                log.info("user:" + user + ",privilegeGather:" + privilegeGather
+                    + ", channel:" + channel1.remoteLocation() + ", is active:" + channel1.isActive());
+                if (channel1.isActive()) {
+                    channel1.send(new Message(Tags.LISTEN_RELOAD_PRIVILEGES, ProtostuffCodec.write(privilegeGather)));
+                }
+            });
+        });
     }
 
     @Override
@@ -113,6 +134,9 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
             }
             return v;
         });
+        if (!flushPrivileges.contains(definition.getUser())) {
+            flushPrivileges.add(definition.getUser());
+        }
         return privileges == null ? true : false;
     }
 
@@ -138,6 +162,9 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
             privilege.setId(newId(privilege));
             this.doSave(privilege);
         });
+        if (!flushPrivileges.contains(definition.getUser())) {
+            flushPrivileges.add(definition.getUser());
+        }
         log.info("privilege map:" + privilegeMap);
     }
 
@@ -210,8 +237,28 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         Optional.ofNullable(privilegeMap.get(tablePriv.getId())).ifPresent(privileges -> {
             privileges.forEach(privilege -> privilegeIndexs[privilege.getPrivilegeIndex()] = true);
         });
-        //privilegeMap.get(tablePriv.getId()).forEach(privilege -> privilegeIndexs[privilege.getPrivilegeIndex()] = true);
         tablePrivDefinition.setPrivileges(privilegeIndexs);
         return tablePrivDefinition;
     }
+
+    public PrivilegeGather getPrivilegeGather(String user) {
+        List<SchemaPriv> schemaPrivileges = ((SchemaPrivAdaptor) getMetaAdaptor(SchemaPriv.class))
+            .getSchemaPrivilege(user);
+        List<User> users = ((UserAdaptor) getMetaAdaptor(User.class)).getUser(user);
+        List<TablePriv> tablePrivileges = ((TablePrivAdaptor) getMetaAdaptor(TablePriv.class))
+            .getTablePrivilege(user);
+
+        List<SchemaPrivDefinition> schemaPrivDefinitions = this.schemaPrivDefinitions(schemaPrivileges);
+        List<UserDefinition> userDefinitions = this.userDefinitions(users);
+        List<TablePrivDefinition> tablePrivDefinitions = this.tablePrivDefinitions(tablePrivileges);
+
+
+        return PrivilegeGather.builder()
+            .schemaPrivDefMap(schemaPrivDefinitions)
+            .userDefMap(userDefinitions)
+            .tablePrivDefMap(tablePrivDefinitions)
+            .user(user)
+            .build();
+    }
+
 }

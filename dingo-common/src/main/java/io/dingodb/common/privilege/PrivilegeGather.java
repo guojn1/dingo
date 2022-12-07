@@ -32,7 +32,9 @@ import java.util.Map;
 public class PrivilegeGather implements Serializable {
     private static final long serialVersionUID = 3710791330563076956L;
 
+    private String user;
     private List<UserDefinition> userDefMap;
     private List<SchemaPrivDefinition> schemaPrivDefMap;
     private List<TablePrivDefinition> tablePrivDefMap;
+
 }
