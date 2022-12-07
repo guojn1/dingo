@@ -18,7 +18,9 @@ package io.dingodb.server.executor;
 
 import io.dingodb.common.CommonId;
 import io.dingodb.common.Executive;
+import io.dingodb.common.auth.DingoRole;
 import io.dingodb.common.config.DingoConfiguration;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.common.store.Part;
 import io.dingodb.exec.Services;
 import io.dingodb.net.NetService;
@@ -75,10 +77,12 @@ public class ExecutorServer {
         this.coordinatorConnector = CoordinatorConnector.getDefault();
         this.serverApi = netService.apiRegistry().proxy(ServerApi.class, coordinatorConnector);
         this.metaServiceApi = netService.apiRegistry().proxy(MetaServiceApi.class, coordinatorConnector);
+
     }
 
     public void start() throws Exception {
         log.info("Starting executor......");
+        Domain.role = DingoRole.EXECUTOR;
         initId();
         DingoConfiguration.instance().setServerId(this.id);
         netService.listenPort(DingoConfiguration.port());

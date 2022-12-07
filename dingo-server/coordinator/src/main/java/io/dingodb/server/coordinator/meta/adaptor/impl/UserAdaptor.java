@@ -1,0 +1,171 @@
+/*
+ * Copyright 2021 DataCanvas
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.dingodb.server.coordinator.meta.adaptor.impl;
+
+import com.google.auto.service.AutoService;
+import io.dingodb.common.CommonId;
+import io.dingodb.common.privilege.UserDefinition;
+import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
+import io.dingodb.server.coordinator.store.MetaStore;
+import io.dingodb.server.protocol.meta.User;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
+import static io.dingodb.server.protocol.CommonIdConstant.PRIVILEGE_IDENTIFIER;
+import static io.dingodb.server.protocol.CommonIdConstant.ROOT_DOMAIN;
+
+@Slf4j
+public class UserAdaptor extends BaseAdaptor<User> {
+
+    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.data, PRIVILEGE_IDENTIFIER.user);
+
+    protected final Map<String, User> userMap;
+
+    public UserAdaptor(MetaStore metaStore) {
+        super(metaStore);
+        MetaAdaptorRegistry.register(User.class, this);
+        userMap = new ConcurrentHashMap<>();
+
+        // Add root user
+        if (this.metaMap.isEmpty()) {
+            User user = User.builder()
+                .user("root")
+                .host("%")
+                .plugin("mysql_native_password")
+                .password("123123")
+                .build();
+            save(user);
+        }
+
+        metaMap.forEach((k, v) -> {
+            userMap.put(v.getKey(), v);
+        });
+    }
+
+    @Override
+    protected CommonId newId(User meta) {
+        return new CommonId(
+            META_ID.type(),
+            META_ID.identifier(), ROOT_DOMAIN,
+            metaStore.generateSeq(CommonId.prefix(META_ID.type(), META_ID.identifier()).encode())
+        );
+    }
+
+    @Override
+    public CommonId metaId() {
+        return META_ID;
+    }
+
+    public Map<String, List<UserDefinition>> getAllDefinition() {
+        return getAll().stream().map(this::metaToDefinition)
+            .collect(Collectors.groupingBy(UserDefinition::getUser));
+    }
+
+    private UserDefinition metaToDefinition(User user) {
+        return UserDefinition.builder()
+            .user(user.getUser())
+            .host(user.getHost())
+            .password(user.getPassword())
+            .plugin(user.getPlugin())
+            .build();
+    }
+
+    @AutoService(BaseAdaptor.Creator.class)
+    public static class Creator implements BaseAdaptor.Creator<User, UserAdaptor> {
+        @Override
+        public UserAdaptor create(MetaStore metaStore) {
+            return new UserAdaptor(metaStore);
+        }
+    }
+
+    public CommonId create(UserDefinition userDefinition) {
+        log.info("user map:" + userMap.toString());
+        String userKey = userDefinition.getKey();
+        if (userMap.containsKey(userKey)) {
+            return userMap.get(userKey).getId();
+        } else {
+            User user = definitionToMeta(userDefinition);
+            user.setId(newId(user));
+            doSave(user);
+            return user.getId();
+        }
+
+    }
+
+    @Override
+    protected void doSave(User user) {
+        super.doSave(user);
+        userMap.putIfAbsent(user.getKey(), user);
+    }
+
+    public boolean isExist(UserDefinition userDefinition) {
+        log.info("user key:" + userDefinition.getKey() + ", usermap:" + userMap);
+        if (userMap.containsKey(userDefinition.getKey())) {
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    protected void doDelete(User meta) {
+        super.doDelete(meta);
+    }
+
+    public CommonId delete(UserDefinition userDefinition) {
+        User user = userMap.remove(userDefinition.getKey());
+        if (user != null) {
+            this.doDelete(user);
+            log.info("do delete userMap:" + userMap);
+            return user.getId();
+        } else {
+            log.error("remove user is null");
+        }
+        return null;
+    }
+
+    public List<User> getUser(String user) {
+        return userMap.entrySet().stream()
+            .filter(k -> k.getKey().startsWith(user + "#"))
+            .map(Map.Entry::getValue)
+            .collect(Collectors.toList());
+    }
+
+    public List<UserDefinition> getUserDefinition(String user) {
+        List<UserDefinition> userDefinitions = new ArrayList<>();
+        userMap.forEach((k, v) -> {
+            if (k.startsWith(user)) {
+                userDefinitions.add(metaToDefinition(v));
+            }
+        });
+        log.info("userMap:" + userMap);
+        return userDefinitions;
+    }
+
+    private User definitionToMeta(UserDefinition definition) {
+        return User.builder().user(definition.getUser())
+            .host(definition.getHost())
+            .plugin(definition.getPlugin())
+            .password(definition.getPassword())
+            .build();
+    }
+}

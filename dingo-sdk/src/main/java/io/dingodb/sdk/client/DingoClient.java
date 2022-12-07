@@ -19,6 +19,8 @@ package io.dingodb.sdk.client;
 import com.google.common.collect.ImmutableList;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.DingoOpResult;
+import io.dingodb.common.auth.DingoRole;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.common.table.ColumnDefinition;
 import io.dingodb.common.table.TableDefinition;
 import io.dingodb.sdk.common.DingoClientException;
@@ -37,6 +39,7 @@ import io.dingodb.sdk.operation.op.impl.AbstractOp;
 import io.dingodb.sdk.operation.op.impl.CollectionOp;
 import io.dingodb.sdk.operation.op.impl.WriteOp;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -65,6 +68,10 @@ import java.util.stream.Collectors;
 public class DingoClient {
 
     private final DingoConnection connection;
+
+    public String user;
+
+    public String password;
 
     private StoreOperationUtils storeOpUtils;
 
@@ -98,12 +105,25 @@ public class DingoClient {
         DingoClient.retryTimes = retryTimes;
     }
 
+    public void setIdentity(String user, String password){
+        this.user = user;
+        this.password = password;
+    }
+
     /**
      * build connection to dingo database cluster.
      * @return true when connection is built successfully, otherwise false.
      */
     public boolean open() {
         try {
+            Domain.role = DingoRole.SDK_CLIENT;
+            Domain domain = Domain.getInstance();
+            if (StringUtils.isBlank(user)) {
+                this.user = "root";
+                this.password = "123123";
+            }
+            domain.setInfo("user", user);
+            domain.setInfo("password", password);
             if (isConnected()) {
                 return true;
             } else {
