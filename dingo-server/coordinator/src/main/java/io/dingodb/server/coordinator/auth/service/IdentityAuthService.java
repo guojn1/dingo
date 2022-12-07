@@ -42,7 +42,11 @@ public class IdentityAuthService implements AuthService<Authentication> {
     public SysInfoServiceApi sysInfoServiceApi;
 
     public IdentityAuthService() {
-        sysInfoServiceApi = new SysInfoServiceApi();
+        try {
+            sysInfoServiceApi = new SysInfoServiceApi();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static final AuthService INSTANCE = new IdentityAuthService();
@@ -78,11 +82,11 @@ public class IdentityAuthService implements AuthService<Authentication> {
             String host = authentication.getHost();
             String clientPassword = authentication.getPassword();
 
-            PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(user);
+            PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(null, user);
             UserDefinition userDef = privilegeVerify.matchUser(host, privilegeGather);
 
             if (user == null) {
-                throw new Exception("user is null");
+                throw new Exception(String.format("Access denied for user '%s'@'%s'", user, host));
             }
             String plugin = userDef.getPlugin();
             String password = userDef.getPassword();
@@ -99,7 +103,7 @@ public class IdentityAuthService implements AuthService<Authentication> {
                 certificate.setInfo(clientInfo);
                 certificate.setPrivilegeGather(privilegeGather);
             } else {
-                throw new Exception("password is wrong");
+                throw new Exception(String.format("Access denied for user '%s'@'%s'", user, host));
             }
             return certificate;
         } catch (Exception e) {

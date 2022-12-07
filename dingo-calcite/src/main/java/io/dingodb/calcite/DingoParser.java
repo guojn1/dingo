@@ -152,9 +152,14 @@ public class DingoParser {
         tableInstance.register(SqlUserDefinedOperators.NOT_LIKE_BINARY);
         SqlLikeBinaryOperator.register();
 
+        String user = context.getOption("user");
+        String host = context.getOption("host");
+
         sqlValidator = new DingoSqlValidator(
             catalogReader,
-            context.getTypeFactory()
+            context.getTypeFactory(),
+            user,
+            host
         );
     }
 

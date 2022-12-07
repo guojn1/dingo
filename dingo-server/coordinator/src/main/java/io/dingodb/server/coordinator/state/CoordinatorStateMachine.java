@@ -35,6 +35,7 @@ import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.Tags;
 import io.prometheus.client.exporter.HTTPServer;
 import lombok.extern.slf4j.Slf4j;
+import org.omg.CORBA.PRIVATE_MEMBER;
 
 import java.io.IOException;
 import java.util.ServiceLoader;

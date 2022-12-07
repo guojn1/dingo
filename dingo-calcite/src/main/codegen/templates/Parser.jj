@@ -1070,6 +1070,10 @@ SqlNode SqlStmt() :
         stmt = SqlGrant()
     |
         stmt = SqlRevoke()
+    |
+        stmt = SqlFlush()
+    |
+        stmt = SqlShow()
     )
     {
         return stmt;
@@ -4109,13 +4113,31 @@ SqlCall SequenceExpression() :
 SqlSetOption SqlSetOption(Span s, String scope) :
 {
     SqlIdentifier name;
+    SqlIdentifier identifier;
     final SqlNode val;
+    String user = null;
+    String host = "%";
+    String password = null;
 }
 {
     (
         <SET> {
             s.add(this);
         }
+        [
+             <PASSWORD> <FOR>
+             ( <QUOTED_STRING> | <IDENTIFIER> )
+              { user = token.image; }
+              [<ATSPLIT> (<QUOTED_STRING> | <IDENTIFIER>) {host = token.image; }  ]
+              <EQ>
+              <PASSWORD>
+              <LPAREN>
+              <QUOTED_STRING> { password = token.image; }
+              <RPAREN>
+              {
+                return new SqlSetPassword(s.end(this), user, host, password);
+              }
+        ]
         name = CompoundIdentifier()
         <EQ>
         (
@@ -7921,6 +7943,10 @@ SqlPostfixOperator PostfixRowOperator() :
 |   < TRIM_ARRAY: "TRIM_ARRAY" >
 |   < TRUE: "TRUE" >
 |   < TRUNCATE: "TRUNCATE" >
+|   < TTL: "TTL" >
+|   < FLUSH: "FLUSH" >
+|   < GRANTS: "GRANTS" >
+|   < PASSWORD: "PASSWORD" >
 |   < IDENTIFIED: "IDENTIFIED" >
 |   < INDEX: "INDEX" >
 |   < RELOAD: "RELOAD" >

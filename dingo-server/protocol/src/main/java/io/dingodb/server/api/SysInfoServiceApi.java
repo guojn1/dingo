@@ -16,8 +16,11 @@
 
 package io.dingodb.server.api;
 
-import io.dingodb.common.privilege.*;
 import io.dingodb.common.annotation.ApiDeclaration;
+import io.dingodb.common.privilege.PrivilegeDefinition;
+import io.dingodb.common.privilege.PrivilegeGather;
+import io.dingodb.common.privilege.UserDefinition;
+import io.dingodb.net.Channel;
 
 import java.util.List;
 
@@ -33,13 +36,16 @@ public interface SysInfoServiceApi {
     void dropUser(UserDefinition userDefinition);
 
     @ApiDeclaration
+    void setPassword(UserDefinition userDefinition);
+
+    @ApiDeclaration
     void grant(PrivilegeDefinition privilegeDefinition);
 
     @ApiDeclaration
     void revoke(PrivilegeDefinition privilegeDefinition);
 
     @ApiDeclaration
-    PrivilegeGather getPrivilegeDef(String user);
+    PrivilegeGather getPrivilegeDef(Channel channel, String user);
 
     @ApiDeclaration
     List<UserDefinition> getUserDefinition(String user);

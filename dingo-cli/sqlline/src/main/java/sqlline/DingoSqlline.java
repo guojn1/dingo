@@ -58,7 +58,7 @@ public class DingoSqlline {
         properties.setProperty("user", "root");
         properties.setProperty("password", "123123");
         Domain.role = DingoRole.JDBC_CLIENT;
-        Domain domain = Domain.getInstance();
+        Domain domain = Domain.INSTANCE;
         domain.putAll(properties);
         Connection connection = DriverManager.getConnection("jdbc:dingo:", properties);
         setConnection(new SqllineDatabaseConnection(this.sqlLine, connection));

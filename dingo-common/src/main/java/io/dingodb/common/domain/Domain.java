@@ -17,12 +17,14 @@
 package io.dingodb.common.domain;
 
 import io.dingodb.common.auth.DingoRole;
+import io.dingodb.common.privilege.PrivilegeGather;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Getter
 @Setter
@@ -30,11 +32,10 @@ public class Domain {
     public static DingoRole role;
 
     public static Properties info = new Properties();
-    protected static Domain domain = new Domain();
 
-    public static Domain getInstance() {
-        return domain;
-    }
+    public static Domain INSTANCE = new Domain();
+
+    public volatile Map<String, PrivilegeGather> privilegeGatherMap = new ConcurrentHashMap<>();
 
     public boolean containsKey(String key) {
         return info.containsKey(key);

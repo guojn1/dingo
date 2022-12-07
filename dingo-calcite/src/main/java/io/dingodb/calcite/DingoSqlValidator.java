@@ -17,21 +17,46 @@
 package io.dingodb.calcite;
 
 import io.dingodb.calcite.fun.DingoOperatorTable;
+import io.dingodb.calcite.grammar.ddl.DingoSqlCreateTable;
+import io.dingodb.calcite.grammar.ddl.SqlCreateUser;
+import io.dingodb.calcite.grammar.ddl.SqlDropUser;
+import io.dingodb.calcite.grammar.ddl.SqlFlushPrivileges;
+import io.dingodb.calcite.grammar.ddl.SqlGrant;
+import io.dingodb.calcite.grammar.ddl.SqlRevoke;
+import io.dingodb.calcite.grammar.ddl.SqlSetPassword;
+import io.dingodb.common.domain.Domain;
+import io.dingodb.net.error.ApiTerminateException;
+import io.dingodb.verify.privilege.PrivilegeType;
+import io.dingodb.verify.privilege.PrivilegeVerify;
 import org.apache.calcite.prepare.CalciteCatalogReader;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDelete;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlInsert;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.util.SqlOperatorTables;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class DingoSqlValidator extends SqlValidatorImpl {
+    PrivilegeVerify privilegeVerify = new PrivilegeVerify();
+
+    private String user;
+    private String host;
+
     public static Config CONFIG = Config.DEFAULT
         .withConformance(DingoParser.PARSER_CONFIG.conformance());
 
     public DingoSqlValidator(
         CalciteCatalogReader catalogReader,
-        RelDataTypeFactory typeFactory
+        RelDataTypeFactory typeFactory,
+        String user,
+        String host
     ) {
         super(
             SqlOperatorTables.chain(
@@ -43,10 +68,86 @@ public class DingoSqlValidator extends SqlValidatorImpl {
             typeFactory,
             DingoSqlValidator.CONFIG
         );
+        this.user = user;
+        this.host = host;
     }
 
     @Override
     public void validateCall(SqlCall call, SqlValidatorScope scope) {
         super.validateCall(call, scope);
+
+        verify(call);
+    }
+
+    @Override
+    public void validateQuery(SqlNode node, @Nullable SqlValidatorScope scope, RelDataType targetRowType) {
+        super.validateQuery(node, scope, targetRowType);
+        if (node instanceof SqlIdentifier) {
+            verify((SqlIdentifier) node, "select");
+        }
+    }
+
+    @Override
+    public void validateUpdate(SqlUpdate call) {
+        super.validateUpdate(call);
+        SqlNode node = call.getTargetTable();
+        if (node instanceof SqlIdentifier) {
+            verify((SqlIdentifier) node, "update");
+        }
+    }
+
+    @Override
+    public void validateDelete(SqlDelete call) {
+        super.validateDelete(call);
+        SqlNode node = call.getTargetTable();
+        if (node instanceof SqlIdentifier) {
+            verify((SqlIdentifier) node, "delete");
+        }
+    }
+
+    @Override
+    public void validateInsert(SqlInsert insert) {
+        super.validateInsert(insert);
+        SqlNode node = insert.getTargetTable();
+        if (node instanceof SqlIdentifier) {
+            verify((SqlIdentifier) node, "insert");
+        }
+    }
+
+
+    public void verify(SqlIdentifier node, String sqlAccessType) {
+        String schema = "DINGO";
+        String table;
+        if (node.names.size() == 1) {
+            table = node.names.get(0);
+        } else {
+            schema = node.names.get(0);
+            table = node.names.get(1);
+        }
+        if (!privilegeVerify.verify(PrivilegeType.SQL, user,
+            host, schema, table, sqlAccessType, Domain.INSTANCE.privilegeGatherMap.get(user))) {
+            throw new ApiTerminateException("Access denied for user '%s'@'%s' to %s", user, host, schema);
+        }
+    }
+
+    public void verify(SqlCall call) {
+        String accessType = "";
+        if (call instanceof DingoSqlCreateTable) {
+            accessType = "create";
+        } else if (call instanceof SqlDropUser) {
+            accessType = "drop";
+        } else if (call instanceof SqlCreateUser) {
+            accessType = "create_user";
+        } else if (call instanceof SqlRevoke || call instanceof SqlGrant) {
+            accessType = "grant";
+        } else if (call instanceof SqlFlushPrivileges) {
+            accessType = "reload";
+        } else if (call instanceof SqlSetPassword) {
+            if (!"root".equals(user)) {
+                throw new ApiTerminateException("Access denied");
+            }
+        }
+        privilegeVerify.verify(PrivilegeType.SQL, user, host, null, null,
+            accessType, Domain.INSTANCE.privilegeGatherMap.get(user));
     }
 }

@@ -16,8 +16,11 @@
 
 package io.dingodb.common.privilege;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class PrivilegeDict {
     public static final Map<String, Integer> privilegeIndexDict = new ConcurrentHashMap<>();
@@ -61,5 +64,10 @@ public class PrivilegeDict {
 
     public static void reload(Object param) {
         // todo
+    }
+
+    public static List<String> getPrivilege(List<Integer> indexs) {
+        return privilegeIndexDict.entrySet().stream().filter(entry -> indexs.contains(entry.getValue()))
+            .map(Map.Entry::getKey).collect(Collectors.toList());
     }
 }
