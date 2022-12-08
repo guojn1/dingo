@@ -17,10 +17,13 @@
 package io.dingodb.verify.privilege;
 
 
+import io.dingodb.common.privilege.PrivilegeGather;
+
 public class SdkClientPrivilegeVerify extends PrivilegeVerify{
 
     @Override
-    public boolean verify(Object... param) {
+    public boolean verify(String user, String host, String schema, String table,
+                          String accessType, PrivilegeGather privilegeGather) {
 
         return true;
     }

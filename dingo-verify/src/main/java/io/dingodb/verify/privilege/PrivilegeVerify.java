@@ -23,6 +23,7 @@ import io.dingodb.common.privilege.UserDefinition;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PrivilegeVerify {
 
@@ -57,36 +58,35 @@ public class PrivilegeVerify {
     }
 
     public UserDefinition matchUser(String host, PrivilegeGather privilegeGather) {
-        return UserDefinition.builder().user("root")
-            .password("cbcce4ebcf0e63f32a3d6904397792720f7e40ba")
-            .plugin("mysql_native_password")
-            .build();
+        return matchUser(host, privilegeGather.getUserDefMap());
     }
 
     public UserDefinition matchUser(String host, List<UserDefinition> userDefList) {
-        //fake data
-        // todo
-        if (userDefList != null && userDefList.size() > 0) {
-            return userDefList.get(0);
-        } else {
-            return null;
+        List<UserDefinition> userDefs = userDefList.stream()
+            .filter(userDefinition -> matchHost(userDefinition, host)).collect(Collectors.toList());
+
+        UserDefinition userDef = null;
+        if (userDefs.size() > 0) {
+            userDef = userDefs.get(0);
         }
+        return userDef;
     }
 
-    public boolean verify(Object... param) {
+    public boolean verify(String user, String host, String schema, String table,
+                          String accessType, PrivilegeGather privilegeGather) {
         return false;
     }
 
     /**
      * privilege verify.
      * @param verifyType driver/sdk/api
-     * @param param param 0: user,host  1: privilege 2: privilege select/update/delete/insert
      * @return true/false
      */
-    public boolean verify(PrivilegeType verifyType, Object... param) {
+    public boolean verify(PrivilegeType verifyType, String user, String host, String schema, String table,
+                          String accessType, PrivilegeGather privilegeGather) {
         if (isVerify) {
             PrivilegeVerify privilegeVerify = privilegeVerifyMap.get(verifyType);
-            return privilegeVerify.verify(param);
+            return privilegeVerify.verify(user, host, schema, table, accessType, privilegeGather);
         } else {
             return true;
         }

@@ -27,103 +27,108 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
+import static io.dingodb.server.protocol.CommonIdConstant.PRIVILEGE_IDENTIFIER;
 import static io.dingodb.server.protocol.CommonIdConstant.ROOT_DOMAIN;
-import static io.dingodb.server.protocol.CommonIdConstant.TABLE_IDENTIFIER;
 
 @Slf4j
 public class PrivilegeDictAdaptor extends BaseAdaptor<PrivilegeDict> {
 
-    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.table, TABLE_IDENTIFIER.table);
+    public static final CommonId META_ID = CommonId.prefix(ID_TYPE.data, PRIVILEGE_IDENTIFIER.privilegeDict);
+
+    public static final CommonId privilegeDictId = new CommonId(
+        ID_TYPE.data, PRIVILEGE_IDENTIFIER.privilegeType, ROOT_DOMAIN, 1, 1
+    );
+
     public static final byte[] SEQ_KEY = META_ID.encode();
 
     private static final Map<String, CommonId> PRIVILEGE_DICT = new HashMap<>();
 
     static {
-        PRIVILEGE_DICT.put("Select", new CommonId(
+        PRIVILEGE_DICT.put("select", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 1, 1
         ));
-        PRIVILEGE_DICT.put("Insert", new CommonId(
+        PRIVILEGE_DICT.put("insert", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 2, 1
         ));
-        PRIVILEGE_DICT.put("Update", new CommonId(
+        PRIVILEGE_DICT.put("update", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 3, 1
         ));
-        PRIVILEGE_DICT.put("Delete", new CommonId(
+        PRIVILEGE_DICT.put("delete", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 4, 1
         ));
-        PRIVILEGE_DICT.put("Index", new CommonId(
+        PRIVILEGE_DICT.put("index", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 5, 1
         ));
-        PRIVILEGE_DICT.put("Alter", new CommonId(
+        PRIVILEGE_DICT.put("alter", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 6, 1
         ));
-        PRIVILEGE_DICT.put("Create", new CommonId(
+        PRIVILEGE_DICT.put("create", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 7, 1
         ));
-        PRIVILEGE_DICT.put("Drop", new CommonId(
+        PRIVILEGE_DICT.put("drop", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 8, 1
         ));
-        PRIVILEGE_DICT.put("Grant", new CommonId(
+        PRIVILEGE_DICT.put("grant", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 9, 1
         ));
-        PRIVILEGE_DICT.put("Create_view", new CommonId(
+        PRIVILEGE_DICT.put("create_view", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 10, 1
         ));
-        PRIVILEGE_DICT.put("Show_view", new CommonId(
+        PRIVILEGE_DICT.put("show_view", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 11, 1
         ));
-        PRIVILEGE_DICT.put("Create_routine", new CommonId(
+        PRIVILEGE_DICT.put("create_routine", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 12, 1
         ));
-        PRIVILEGE_DICT.put("Alter_routine", new CommonId(
+        PRIVILEGE_DICT.put("alter_routine", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 13, 1
         ));
-        PRIVILEGE_DICT.put("Execute", new CommonId(
+        PRIVILEGE_DICT.put("execute", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 14, 1
         ));
-        PRIVILEGE_DICT.put("Trigger", new CommonId(
+        PRIVILEGE_DICT.put("trigger", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 15, 1
         ));
-        PRIVILEGE_DICT.put("Event", new CommonId(
+        PRIVILEGE_DICT.put("event", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 16, 1
         ));
-        PRIVILEGE_DICT.put("Create_tmp_table", new CommonId(
+        PRIVILEGE_DICT.put("create_tmp_table", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 17, 1
         ));
-        PRIVILEGE_DICT.put("Lock_tables", new CommonId(
+        PRIVILEGE_DICT.put("lock_tables", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 18, 1
         ));
-        PRIVILEGE_DICT.put("References", new CommonId(
+        PRIVILEGE_DICT.put("references", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 19, 1
         ));
-        PRIVILEGE_DICT.put("Reload", new CommonId(
+        PRIVILEGE_DICT.put("reload", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 20, 1
         ));
-        PRIVILEGE_DICT.put("Shutdown", new CommonId(
+        PRIVILEGE_DICT.put("shutdown", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 21, 1
         ));
-        PRIVILEGE_DICT.put("Process", new CommonId(
+        PRIVILEGE_DICT.put("process", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 22, 1
         ));
-        PRIVILEGE_DICT.put("File", new CommonId(
+        PRIVILEGE_DICT.put("file", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 23, 1
         ));
-        PRIVILEGE_DICT.put("Show_db", new CommonId(
+        PRIVILEGE_DICT.put("show_db", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 24, 1
         ));
-        PRIVILEGE_DICT.put("Super", new CommonId(
+        PRIVILEGE_DICT.put("super", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 25, 1
         ));
-        PRIVILEGE_DICT.put("Repl_slave", new CommonId(
+        PRIVILEGE_DICT.put("repl_slave", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 26, 1
         ));
-        PRIVILEGE_DICT.put("Repl_client", new CommonId(
+        PRIVILEGE_DICT.put("repl_client", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 27, 1
         ));
-        PRIVILEGE_DICT.put("Create_user", new CommonId(
+        PRIVILEGE_DICT.put("create_user", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 28, 1
         ));
-        PRIVILEGE_DICT.put("Create_tablespace", new CommonId(
+        PRIVILEGE_DICT.put("create_tablespace", new CommonId(
             META_ID.type(), META_ID.identifier(), ROOT_DOMAIN, 29, 1
         ));
         PRIVILEGE_DICT.put("extend1", new CommonId(
