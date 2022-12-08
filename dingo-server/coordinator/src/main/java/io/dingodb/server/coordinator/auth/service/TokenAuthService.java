@@ -21,6 +21,7 @@ import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
 import io.dingodb.common.domain.Domain;
 import io.dingodb.net.service.AuthService;
+import io.dingodb.server.coordinator.api.SysInfoServiceApi;
 import io.dingodb.verify.token.TokenManager;
 import lombok.extern.slf4j.Slf4j;
 
@@ -30,6 +31,8 @@ import java.util.Map;
 @Slf4j
 public class TokenAuthService implements AuthService<Authentication> {
 
+    public SysInfoServiceApi sysInfoServiceApi;
+
     private static final AuthService INSTANCE = new TokenAuthService();
 
     @AutoService(AuthService.Provider.class)
@@ -38,6 +41,14 @@ public class TokenAuthService implements AuthService<Authentication> {
         @Override
         public <C> AuthService<C> get() {
             return INSTANCE;
+        }
+    }
+
+    public TokenAuthService() {
+        try {
+            sysInfoServiceApi = new SysInfoServiceApi();
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -66,6 +77,7 @@ public class TokenAuthService implements AuthService<Authentication> {
             if (clientInfo == null) {
                 throw new Exception("xxx");
             }
+            sysInfoServiceApi.getAllPrivilegeDict();
             Certificate certificate = Certificate.builder().code(100).build();
             return certificate;
         } catch (Exception e) {

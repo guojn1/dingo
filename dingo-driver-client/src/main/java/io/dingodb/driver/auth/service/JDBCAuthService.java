@@ -62,15 +62,18 @@ public class JDBCAuthService implements AuthService<Authentication> {
     @Override
     public Authentication createAuthentication() {
         Domain domain = Domain.INSTANCE;
-        String user = domain.getInfo("user").toString();
-        String host = domain.getInfo("host").toString();
-        String password = domain.getInfo("password").toString();
-
-        Authentication authentication = Authentication.builder()
-            .username(user)
-            .host(host)
-            .password(password).role(domain.role).build();
-        return authentication;
+        String user = (String) domain.getInfo("user");
+        String host = (String) domain.getInfo("host");
+        String password = (String) domain.getInfo("password");
+        if (user == null && host == null) {
+            return null;
+        } else {
+            Authentication authentication = Authentication.builder()
+                .username(user)
+                .host(host)
+                .password(password).role(domain.role).build();
+            return authentication;
+        }
     }
 
     @Override

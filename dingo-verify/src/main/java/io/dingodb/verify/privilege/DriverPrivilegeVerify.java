@@ -16,25 +16,22 @@
 
 package io.dingodb.verify.privilege;
 
-import io.dingodb.common.privilege.*;
+import io.dingodb.common.privilege.PrivilegeDict;
+import io.dingodb.common.privilege.PrivilegeGather;
+import io.dingodb.common.privilege.SchemaPrivDefinition;
+import io.dingodb.common.privilege.TablePrivDefinition;
+import io.dingodb.common.privilege.UserDefinition;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 public class DriverPrivilegeVerify extends PrivilegeVerify {
     public DriverPrivilegeVerify() {
     }
 
-    @Override
-    public boolean verify(Object... param) {
-        String host = (String) param[1];
-        String schema = (String) param[2];
-        String table = (String) param[3];
-        String privilege = (String) param[4];
-        PrivilegeGather privilegeGather = (PrivilegeGather) param[5];
-        Integer index = PrivilegeDict.privilegeIndexDict.get(privilege);
+    public boolean verify(String user, String host, String schema, String table,
+                          String accessType, PrivilegeGather privilegeGather) {
+        Integer index = PrivilegeDict.privilegeIndexDict.get(accessType);
 
         List<UserDefinition> userDefs = privilegeGather.getUserDefMap().stream()
             .filter(userDefinition -> matchHost(userDefinition, host)).collect(Collectors.toList());

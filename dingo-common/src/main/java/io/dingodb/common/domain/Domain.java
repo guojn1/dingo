@@ -45,7 +45,7 @@ public class Domain {
         if (info.containsKey(field)) {
             return info.getProperty(field);
         } else {
-            return new Object();
+            return null;
         }
     }
 

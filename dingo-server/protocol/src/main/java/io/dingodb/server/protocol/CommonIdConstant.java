@@ -92,6 +92,9 @@ public class CommonIdConstant {
         public final byte[] tablePrivilege = new byte[] {'D', 'T'};
 
         public final byte[] privilege = new byte[] {'D', 'I'};
+        public final byte[] privilegeDict = new byte[] {'D', 'L'};
+
+        public final byte[] privilegeType = new byte[] {'D', 'F'};
 
         private PrivilegeIdentifier() {
         }

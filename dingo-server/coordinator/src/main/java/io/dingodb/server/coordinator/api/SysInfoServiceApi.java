@@ -17,17 +17,29 @@
 package io.dingodb.server.coordinator.api;
 
 import io.dingodb.common.CommonId;
-import io.dingodb.common.annotation.ApiDeclaration;
-import io.dingodb.common.privilege.*;
+import io.dingodb.common.privilege.PrivilegeDefinition;
+import io.dingodb.common.privilege.PrivilegeGather;
+import io.dingodb.common.privilege.PrivilegeType;
+import io.dingodb.common.privilege.SchemaPrivDefinition;
+import io.dingodb.common.privilege.TablePrivDefinition;
+import io.dingodb.common.privilege.UserDefinition;
 import io.dingodb.net.Channel;
 import io.dingodb.net.api.ApiRegistry;
-import io.dingodb.server.coordinator.meta.adaptor.impl.*;
-import io.dingodb.server.protocol.meta.*;
+import io.dingodb.server.coordinator.meta.adaptor.impl.PrivilegeAdaptor;
+import io.dingodb.server.coordinator.meta.adaptor.impl.PrivilegeDictAdaptor;
+import io.dingodb.server.coordinator.meta.adaptor.impl.SchemaPrivAdaptor;
+import io.dingodb.server.coordinator.meta.adaptor.impl.TablePrivAdaptor;
+import io.dingodb.server.coordinator.meta.adaptor.impl.UserAdaptor;
+import io.dingodb.server.protocol.meta.Privilege;
 import io.dingodb.server.protocol.meta.PrivilegeDict;
+import io.dingodb.server.protocol.meta.SchemaPriv;
+import io.dingodb.server.protocol.meta.TablePriv;
+import io.dingodb.server.protocol.meta.User;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry.getMetaAdaptor;
 
@@ -134,6 +146,7 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
                         .id(user.getId())
                         .privilegeType(PrivilegeType.USER)
                         .user(userName)
+                        .subjectId(((PrivilegeDictAdaptor) getMetaAdaptor(PrivilegeDict.class)).privilegeDictId)
                         .host(user.getHost())
                         .privilegeIndex(entry.getValue().seq())
                         .build();
@@ -141,6 +154,16 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
                 }
             }
         }
+    }
+
+    public List<String> getAllPrivilegeDict() {
+        Map<String, CommonId> privilegeDict =
+            ((PrivilegeDictAdaptor) getMetaAdaptor(PrivilegeDict.class)).getPrivilegeDict();
+        return privilegeDict.entrySet().stream().map(this::mappingPrivilegeIndex).collect(Collectors.toList());
+    }
+
+    public String mappingPrivilegeIndex(Map.Entry<String, CommonId> entry) {
+        return new StringBuilder(entry.getKey()).append("#").append(entry.getValue().seq()).toString();
     }
 
 }
