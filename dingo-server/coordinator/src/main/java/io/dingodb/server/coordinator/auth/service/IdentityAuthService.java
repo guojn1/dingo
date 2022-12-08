@@ -85,7 +85,7 @@ public class IdentityAuthService implements AuthService<Authentication> {
             PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(null, user);
             UserDefinition userDef = privilegeVerify.matchUser(host, privilegeGather);
 
-            if (user == null) {
+            if (userDef == null) {
                 throw new Exception(String.format("Access denied for user '%s'@'%s'", user, host));
             }
             String plugin = userDef.getPlugin();
