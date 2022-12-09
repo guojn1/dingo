@@ -19,8 +19,6 @@ package io.dingodb.server.coordinator.auth.service;
 import com.google.auto.service.AutoService;
 import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
-import io.dingodb.common.auth.DingoRole;
-import io.dingodb.common.domain.Domain;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.UserDefinition;
 import io.dingodb.net.service.AuthService;
@@ -83,7 +81,7 @@ public class IdentityAuthService implements AuthService<Authentication> {
             String clientPassword = authentication.getPassword();
 
             PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(null, user);
-            UserDefinition userDef = privilegeVerify.matchUser(host, privilegeGather);
+            UserDefinition userDef = privilegeGather.getUserDef();
 
             if (userDef == null) {
                 throw new Exception(String.format("Access denied for user '%s'@'%s'", user, host));

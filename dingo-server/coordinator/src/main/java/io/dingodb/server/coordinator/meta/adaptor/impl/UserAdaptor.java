@@ -27,8 +27,6 @@ import io.dingodb.verify.plugin.AlgorithmPlugin;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -60,7 +58,7 @@ public class UserAdaptor extends BaseAdaptor<User> {
             .password("cbcce4ebcf0e63f32a3d6904397792720f7e40ba")
             .build();
         user.setId(newId(user));
-        userMap.putIfAbsent("root#%", user);
+        userMap.putIfAbsent(user.getKey(), user);
     }
 
     @Override
@@ -144,11 +142,8 @@ public class UserAdaptor extends BaseAdaptor<User> {
         return null;
     }
 
-    public List<User> getUser(String user) {
-        return userMap.entrySet().stream()
-            .filter(k -> k.getKey().startsWith(user + "#"))
-            .map(Map.Entry::getValue)
-            .collect(Collectors.toList());
+    public User getUser(String user, String host) {
+        return Optional.ofNullable(userMap.get(user + "#%")).orElseGet(() -> userMap.get(user + "#" + host));
     }
 
     public List<UserDefinition> getUserDefinition(String user) {

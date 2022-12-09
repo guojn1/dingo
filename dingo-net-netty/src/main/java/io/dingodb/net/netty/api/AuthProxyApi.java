@@ -17,7 +17,6 @@
 package io.dingodb.net.netty.api;
 
 import io.dingodb.common.annotation.ApiDeclaration;
-import io.dingodb.common.auth.Certificate;
 import io.dingodb.common.codec.ProtostuffCodec;
 import io.dingodb.net.Message;
 import io.dingodb.net.error.ApiTerminateException;
@@ -25,7 +24,6 @@ import io.dingodb.net.netty.Channel;
 import io.dingodb.net.netty.Constant;
 import io.dingodb.net.service.AuthService;
 
-import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -35,30 +33,30 @@ import static io.dingodb.net.Message.API_ERROR;
 
 public interface AuthProxyApi {
 
-    AuthProxyApi INSTANCE = new AuthProxyApi() {};
+    AuthProxyApi INSTANCE = new AuthProxyApi() {
+    };
 
     Iterable<AuthService.Provider> serviceProviders = ServiceLoader.load(AuthService.Provider.class);
 
     /**
      * Authentication, throw exception if failed.
-     * @param authentication certificate
+     *
+     * @param certificate certificate
      */
     @ApiDeclaration(name = Constant.AUTH)
-    default Map<String, Object[]> auth(Channel channel, Map<String, ?> authentication) {
+    default Map<String, Object[]> auth(Channel channel, Map<String, ?> certificate) {
         AuthService service = null;
         try {
             Map<String, Object[]> result = new HashMap<>();
             try {
                 for (AuthService.Provider authServiceProvider : serviceProviders) {
                     service = authServiceProvider.get();
-                    Certificate certificate = (Certificate) service.auth(authentication.get(service.tag()));
-                    Object[] ret = new Object[2];
-                    ret[0] = certificate;
-                    result.put(service.tag(), ret);
+                    Object cert = certificate.get(service.tag());
+                    result.put(service.tag(), new Object[]{cert, service.auth(cert)});
                 }
             } catch (Exception e) {
                 if (!(e instanceof NoSuchElementException)) {
-                   throw e;
+                    throw e;
                 }
             }
             return result;

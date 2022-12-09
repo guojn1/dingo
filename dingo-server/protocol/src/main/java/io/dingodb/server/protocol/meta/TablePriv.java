@@ -42,9 +42,9 @@ public class TablePriv implements Meta {
 
     private String host;
 
-    private String schema;
+    private CommonId schema;
 
-    private String table;
+    private CommonId table;
 
     @Override
     public void setId(CommonId id) {

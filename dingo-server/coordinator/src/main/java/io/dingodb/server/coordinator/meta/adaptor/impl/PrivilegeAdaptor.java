@@ -104,7 +104,7 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         log.info("flush privileges, user:" + flushPrivileges.size() + ", channel size:" + channels.size());
         flushPrivileges.forEach(user -> {
             channels.forEach(channel1 -> {
-                PrivilegeGather privilegeGather = getPrivilegeGather(user);
+                PrivilegeGather privilegeGather = getPrivilegeGather(user, channel1.remoteLocation().getHost());
                 log.info("user:" + user + ",privilegeGather:" + privilegeGather
                     + ", channel:" + channel1.remoteLocation() + ", is active:" + channel1.isActive());
                 if (channel1.isActive()) {
@@ -172,12 +172,14 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         return users.stream().map(this :: metaToDefinition).collect(Collectors.toList());
     }
 
-    public List<SchemaPrivDefinition> schemaPrivDefinitions(List<SchemaPriv> schemaPrivs) {
-        return schemaPrivs.stream().map(this :: metaToDefinition).collect(Collectors.toList());
+    public Map<CommonId, SchemaPrivDefinition> schemaPrivDefinitions(Map<CommonId, SchemaPriv> schemaPrivs) {
+        return schemaPrivs.entrySet().stream().collect(Collectors.toMap(
+            entry -> entry.getKey(), entry -> metaToDefinition(entry.getValue())));
     }
 
-    public List<TablePrivDefinition> tablePrivDefinitions(List<TablePriv> tablePrivs) {
-        return tablePrivs.stream().map(this :: metaToDefinition).collect(Collectors.toList());
+    public Map<CommonId, TablePrivDefinition> tablePrivDefinitions(Map<CommonId, TablePriv> tablePrivs) {
+        return tablePrivs.entrySet().stream().collect(Collectors.toMap(
+            entry -> entry.getKey(), entry -> metaToDefinition(entry.getValue())));
     }
 
     public UserDefinition metaToDefinition(User user) {
@@ -241,21 +243,19 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         return tablePrivDefinition;
     }
 
-    public PrivilegeGather getPrivilegeGather(String user) {
-        List<SchemaPriv> schemaPrivileges = ((SchemaPrivAdaptor) getMetaAdaptor(SchemaPriv.class))
-            .getSchemaPrivilege(user);
-        List<User> users = ((UserAdaptor) getMetaAdaptor(User.class)).getUser(user);
-        List<TablePriv> tablePrivileges = ((TablePrivAdaptor) getMetaAdaptor(TablePriv.class))
-            .getTablePrivilege(user);
+    public PrivilegeGather getPrivilegeGather(String user, String host) {
+        UserDefinition userDefinition = metaToDefinition(
+            ((UserAdaptor) getMetaAdaptor(User.class)).getUser(user, host));
 
-        List<SchemaPrivDefinition> schemaPrivDefinitions = this.schemaPrivDefinitions(schemaPrivileges);
-        List<UserDefinition> userDefinitions = this.userDefinitions(users);
-        List<TablePrivDefinition> tablePrivDefinitions = this.tablePrivDefinitions(tablePrivileges);
+        Map<CommonId, SchemaPrivDefinition> schemaPrivDefinitions = schemaPrivDefinitions(
+            ((SchemaPrivAdaptor) getMetaAdaptor(SchemaPriv.class)).getSchemaPrivilege(user, host));
 
+        Map<CommonId, TablePrivDefinition> tablePrivDefinitions = tablePrivDefinitions(
+            ((TablePrivAdaptor) getMetaAdaptor(TablePriv.class)).getTablePrivilege(user, host));
 
         return PrivilegeGather.builder()
+            .userDef(userDefinition)
             .schemaPrivDefMap(schemaPrivDefinitions)
-            .userDefMap(userDefinitions)
             .tablePrivDefMap(tablePrivDefinitions)
             .user(user)
             .build();

@@ -16,22 +16,25 @@
 
 package io.dingodb.common.privilege;
 
-import lombok.*;
-
-import java.util.List;
+import io.dingodb.common.CommonId;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
 @Setter
 @Getter
 @NoArgsConstructor
 @ToString
 public class TablePrivDefinition extends PrivilegeDefinition {
-    private String schema;
-    private String table;
+    private CommonId schema;
+    private CommonId table;
 
     Boolean[] privileges;
 
     @Builder(toBuilder = true)
-    TablePrivDefinition(String user, String host, String schema, String table) {
+    TablePrivDefinition(String user, String host, CommonId schema, CommonId table) {
         super(user, host);
         this.schema = schema;
         this.table = table;

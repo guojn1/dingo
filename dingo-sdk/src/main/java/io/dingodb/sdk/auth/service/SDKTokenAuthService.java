@@ -19,9 +19,7 @@ package io.dingodb.sdk.auth.service;
 import com.google.auto.service.AutoService;
 import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
-import io.dingodb.common.auth.DingoRole;
 import io.dingodb.common.domain.Domain;
-import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.net.NetService;
 import io.dingodb.net.NetServiceProvider;
 import io.dingodb.net.service.AuthService;
@@ -85,8 +83,8 @@ public class SDKTokenAuthService implements AuthService<Authentication> {
                     String token = certificate.getToken();
                     if (StringUtils.isNotBlank(token)) {
                         // if sdk identity auth success, then mapping return privilege to sdk invoke by
-                        Map<String, Boolean[]> sdkPrivilege = certificate.privilege2SDK();
-                        identityRet[1] = sdkPrivilege;
+                        // Map<String, Boolean[]> sdkPrivilege = certificate.privilege2SDK();
+                        // identityRet[1] = sdkPrivilege;
                     }
                     return token;
                 }

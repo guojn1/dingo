@@ -18,7 +18,6 @@ package io.dingodb.server.coordinator.meta.adaptor.impl;
 
 import com.google.auto.service.AutoService;
 import io.dingodb.common.CommonId;
-import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.SchemaPrivDefinition;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
@@ -28,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
@@ -81,13 +81,13 @@ public class SchemaPrivAdaptor extends BaseAdaptor<SchemaPriv> {
         }
     }
 
-    public List<SchemaPriv> getSchemaPrivilege(String user) {
+    public Map<CommonId, SchemaPriv> getSchemaPrivilege(String user, String host) {
         return schemaPrivMap.entrySet().stream()
             .filter(k -> {
-                return k.getKey().startsWith(user + "#");
+                return k.getKey().startsWith(user + "#%#") || k.getKey().startsWith(user + "#" + host + "#");
             })
             .map(Map.Entry :: getValue)
-            .collect(Collectors.toList());
+            .collect(Collectors.toMap(SchemaPriv::getSchema, Function.identity()));
     }
 
     public CommonId create(SchemaPrivDefinition schemaPrivDefinition) {

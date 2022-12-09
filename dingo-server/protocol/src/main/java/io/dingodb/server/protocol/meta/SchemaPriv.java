@@ -41,7 +41,7 @@ public class SchemaPriv implements Meta {
 
     private String host;
 
-    private String schema;
+    private CommonId schema;
 
     @Override
     public void setId(CommonId id) {

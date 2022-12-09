@@ -16,6 +16,7 @@
 
 package io.dingodb.verify.privilege;
 
+import io.dingodb.common.CommonId;
 import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.UserDefinition;
@@ -57,10 +58,6 @@ public class PrivilegeVerify {
         this.isVerify = isVerify;
     }
 
-    public UserDefinition matchUser(String host, PrivilegeGather privilegeGather) {
-        return matchUser(host, privilegeGather.getUserDefMap());
-    }
-
     public UserDefinition matchUser(String host, List<UserDefinition> userDefList) {
         List<UserDefinition> userDefs = userDefList.stream()
             .filter(userDefinition -> matchHost(userDefinition, host)).collect(Collectors.toList());
@@ -77,6 +74,11 @@ public class PrivilegeVerify {
         return false;
     }
 
+    public boolean apiVerify(String user, String host, CommonId schema, CommonId table,
+                             String accessType, PrivilegeGather privilegeGather) {
+        return true;
+    }
+
     /**
      * privilege verify.
      * @param verifyType driver/sdk/api
@@ -90,5 +92,11 @@ public class PrivilegeVerify {
         } else {
             return true;
         }
+    }
+
+    public boolean apiVerify(PrivilegeType verifyType, String user, String host, CommonId schema, CommonId table,
+                          String accessType, PrivilegeGather privilegeGather) {
+        PrivilegeVerify privilegeVerify = privilegeVerifyMap.get(verifyType);
+        return privilegeVerify.apiVerify(user, host, schema, table, accessType, privilegeGather);
     }
 }

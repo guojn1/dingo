@@ -120,9 +120,12 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
             if (!privilegeAdaptor.channels.contains(channel)) {
                 privilegeAdaptor.channels.add(channel);
             }
+
+            PrivilegeGather privilegeDefinition = privilegeAdaptor.getPrivilegeGather(
+                user, channel.remoteLocation().getHost());
+            return privilegeDefinition;
         }
-        PrivilegeGather privilegeDefinition = privilegeAdaptor.getPrivilegeGather(user);
-        return privilegeDefinition;
+        throw new RuntimeException("Channel is null");
     }
 
     @Override
@@ -130,13 +133,11 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
         return ((UserAdaptor) getMetaAdaptor(User.class)).getUserDefinition(user);
     }
 
-    public void saveRootPrivilege(String userName) {
-        List<User> userList = ((UserAdaptor) getMetaAdaptor(User.class)).getUser(userName);
-        if (userList.size() == 1) {
+    public void saveRootPrivilege(String userName, String host) {
+        User user = ((UserAdaptor) getMetaAdaptor(User.class)).getUser(userName, host);
+        if (user != null) {
             PrivilegeAdaptor privilegeAdaptor = (PrivilegeAdaptor) getMetaAdaptor(Privilege.class);
             if (privilegeAdaptor.getAll().isEmpty()) {
-                // Get root user
-                User user = userList.get(0);
                 // Get dict
                 Map<String, CommonId> privilegeDict =
                     ((PrivilegeDictAdaptor) getMetaAdaptor(PrivilegeDict.class)).getPrivilegeDict();

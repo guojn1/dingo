@@ -49,9 +49,9 @@ public class Privilege implements Meta {
 
     private String host;
 
-    private String schema;
+    private CommonId schema;
 
-    private String table;
+    private CommonId table;
 
     private Integer privilegeIndex;
 
