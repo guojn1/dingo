@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.dingodb.server.protocol.CommonIdConstant.ID_TYPE;
@@ -86,11 +87,13 @@ public class TablePrivAdaptor extends BaseAdaptor<TablePriv> {
      * @param user username
      * @return list
      */
-    public List<TablePriv> getTablePrivilege(String user) {
+    public Map<CommonId, TablePriv> getTablePrivilege(String user, String host) {
         return tablePrivMap.entrySet().stream()
-            .filter(k -> k.getKey().startsWith(user + "#"))
+            .filter(k -> {
+                return k.getKey().startsWith(user + "#%#") || k.getKey().startsWith(user + "#" + host + "#");
+            })
             .map(Map.Entry :: getValue)
-            .collect(Collectors.toList());
+            .collect(Collectors.toMap(TablePriv::getTable, Function.identity()));
     }
 
     @Override

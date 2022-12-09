@@ -105,7 +105,7 @@ public class CoordinatorStateMachine implements CoreListener {
             }
 
             // Add permissions to the root user
-            sysInfoServiceApi.saveRootPrivilege("root");
+            sysInfoServiceApi.saveRootPrivilege("root", "%");
         });
     }
 

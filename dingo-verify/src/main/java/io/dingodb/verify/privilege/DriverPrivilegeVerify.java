@@ -33,17 +33,11 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
                           String accessType, PrivilegeGather privilegeGather) {
         Integer index = PrivilegeDict.privilegeIndexDict.get(accessType);
 
-        List<UserDefinition> userDefs = privilegeGather.getUserDefMap().stream()
-            .filter(userDefinition -> matchHost(userDefinition, host)).collect(Collectors.toList());
-
-        UserDefinition userDef = null;
-        if (userDefs.size() > 0) {
-            userDef = userDefs.get(0);
-        }
-
+        UserDefinition userDef = privilegeGather.getUserDef();
         if (userDef != null && userDef.getPrivileges()[index]) {
             return true;
         } else {
+            /*
             List<SchemaPrivDefinition> schemaPrivDefs = privilegeGather.getSchemaPrivDefMap().stream()
                 .filter(schemaPrivDefinition -> match(schemaPrivDefinition, host, schema))
                 .collect(Collectors.toList());
@@ -71,6 +65,8 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
                     return false;
                 }
             }
+            */
+            return false;
         }
     }
 

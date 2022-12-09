@@ -16,13 +16,38 @@
 
 package io.dingodb.verify.privilege;
 
+import io.dingodb.common.CommonId;
+import io.dingodb.common.privilege.PrivilegeDict;
 import io.dingodb.common.privilege.PrivilegeGather;
+import io.dingodb.common.privilege.SchemaPrivDefinition;
+import io.dingodb.common.privilege.TablePrivDefinition;
+import io.dingodb.common.privilege.UserDefinition;
 
-public class ApiPrivilegeVerify extends PrivilegeVerify{
-
+public class ApiPrivilegeVerify extends PrivilegeVerify {
     @Override
-    public boolean verify(String user, String host, String schema, String table,
-                          String accessType, PrivilegeGather privilegeGather) {
-        return true;
+    public boolean apiVerify(String user, String host, CommonId schema, CommonId table,
+                             String accessType, PrivilegeGather privilegeGather) {
+        // Get index
+        Integer index = PrivilegeDict.privilegeIndexDict.get(accessType);
+
+        // User verify
+        UserDefinition userDef = privilegeGather.getUserDef();
+        if (userDef.getPrivileges()[index]) {
+            return true;
+        }
+
+        // Schema verify
+        SchemaPrivDefinition schemaDef = privilegeGather.getSchemaPrivDefMap().get(schema);
+        if (schemaDef.getPrivileges()[index]) {
+            return true;
+        }
+
+        // Table verify
+        TablePrivDefinition tableDef = privilegeGather.getTablePrivDefMap().get(table);
+        if (tableDef.getPrivileges()[index]) {
+            return true;
+        }
+
+        return false;
     }
 }

@@ -19,7 +19,6 @@ package io.dingodb.driver.auth.service;
 import com.google.auto.service.AutoService;
 import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
-import io.dingodb.common.auth.DingoRole;
 import io.dingodb.common.domain.Domain;
 
 import io.dingodb.common.privilege.PrivilegeGather;
