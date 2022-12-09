@@ -89,6 +89,6 @@ public final class DingoParserContext implements Context {
     }
 
     public String getOption(String field) {
-        return options != null ? options.getOrDefault("user", "").toString() : "";
+        return options != null ? options.getOrDefault(field, "").toString() : "";
     }
 }

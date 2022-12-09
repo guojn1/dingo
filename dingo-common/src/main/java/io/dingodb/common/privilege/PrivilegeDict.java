@@ -16,12 +16,14 @@
 
 package io.dingodb.common.privilege;
 
-import java.util.ArrayList;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class PrivilegeDict {
     public static final Map<String, Integer> privilegeIndexDict = new ConcurrentHashMap<>();
 
@@ -30,18 +32,18 @@ public class PrivilegeDict {
         privilegeIndexDict.put("insert", 2);
         privilegeIndexDict.put("update", 3);
         privilegeIndexDict.put("delete", 4);
-        privilegeIndexDict.put("index",	5);
-        privilegeIndexDict.put("alter",	6);
+        privilegeIndexDict.put("index", 5);
+        privilegeIndexDict.put("alter", 6);
         privilegeIndexDict.put("create", 7);
         privilegeIndexDict.put("drop", 8);
         privilegeIndexDict.put("grant", 9);
         privilegeIndexDict.put("create_view", 10);
-        privilegeIndexDict.put("show_view",	11);
+        privilegeIndexDict.put("show_view", 11);
         privilegeIndexDict.put("create_routine", 12);
-        privilegeIndexDict.put("alter_routine",	13);
+        privilegeIndexDict.put("alter_routine", 13);
         privilegeIndexDict.put("execute", 14);
         privilegeIndexDict.put("trigger", 15);
-        privilegeIndexDict.put("event",	16);
+        privilegeIndexDict.put("event", 16);
         privilegeIndexDict.put("create_tmp_table", 17);
         privilegeIndexDict.put("lock_tables", 18);
         privilegeIndexDict.put("references", 19);
@@ -50,11 +52,11 @@ public class PrivilegeDict {
         privilegeIndexDict.put("process", 22);
         privilegeIndexDict.put("file", 23);
         privilegeIndexDict.put("show_db", 24);
-        privilegeIndexDict.put("super",	25);
+        privilegeIndexDict.put("super", 25);
         privilegeIndexDict.put("repl_slave", 26);
         privilegeIndexDict.put("repl_client", 27);
         privilegeIndexDict.put("create_user", 28);
-        privilegeIndexDict.put("create_tablespace",	29);
+        privilegeIndexDict.put("create_tablespace", 29);
         privilegeIndexDict.put("extend1", 30);
         privilegeIndexDict.put("extend2", 31);
         privilegeIndexDict.put("extend3", 32);
@@ -63,7 +65,12 @@ public class PrivilegeDict {
     }
 
     public static void reload(Object param) {
-        // todo
+        List<String> privilegeDicts = (List<String>) param;
+        for (String privilegeDict : privilegeDicts) {
+            String[] privilegeMapping = privilegeDict.split("#");
+            privilegeIndexDict.put(privilegeMapping[0], Integer.parseInt(privilegeMapping[1]));
+            log.info("privilege dict item:" + privilegeDict);
+        }
     }
 
     public static List<String> getPrivilege(List<Integer> indexs) {

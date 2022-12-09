@@ -14,5 +14,6 @@ repositories {
 dependencies {
     api group: 'org.apache.calcite', name: 'calcite-core', version: 'calcite'.v()
     implementation project(":dingo-common")
+    implementation group: 'org.apache.commons', name: 'commons-lang3', version: 'commons-lang3'.v()
     testCompile group: 'junit', name: 'junit', version: '4.12'
 }

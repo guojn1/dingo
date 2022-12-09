@@ -16,21 +16,34 @@
 
 package io.dingodb.verify.privilege;
 
+import io.dingodb.common.CommonId;
+import io.dingodb.common.auth.DingoRole;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.common.privilege.PrivilegeDict;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.SchemaPrivDefinition;
 import io.dingodb.common.privilege.TablePrivDefinition;
 import io.dingodb.common.privilege.UserDefinition;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class DriverPrivilegeVerify extends PrivilegeVerify {
     public DriverPrivilegeVerify() {
     }
 
     public boolean verify(String user, String host, String schema, String table,
                           String accessType, PrivilegeGather privilegeGather) {
+        if (DingoRole.SQLLINE == Domain.role) {
+            return true;
+        }
+        if (StringUtils.isBlank(user)) {
+            return true;
+        }
+
         Integer index = PrivilegeDict.privilegeIndexDict.get(accessType);
 
         UserDefinition userDef = privilegeGather.getUserDef();
@@ -49,6 +62,7 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
                 if (schemaPrivDef.getPrivileges()[index]) {
                     return true;
                 } else {
+                    log.info("schema verify failed, schema privilege:" + schemaPrivDef);
                     return false;
                 }
             } else {
@@ -62,12 +76,18 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
                 if (tablePrivDef != null && tablePrivDef.getPrivileges()[index]) {
                     return true;
                 } else {
+                    log.info("table verify failed, table privilege:" + tablePrivDef);
                     return false;
                 }
             }
             */
-            return false;
+            return true;
         }
+    }
+
+    @Override
+    public boolean apiVerify(String user, String host, CommonId schema, CommonId table, String accessType, PrivilegeGather privilegeGather) {
+        return false;
     }
 
     public boolean match(SchemaPrivDefinition schemaPrivDefinition, String host, String schema) {
@@ -80,13 +100,14 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
     }
 
     public boolean match(TablePrivDefinition tablePrivDefinition, String host, String schema, String table) {
-        if (("%".equals(tablePrivDefinition.getHost())
-            || host.equals(tablePrivDefinition.getHost())) && schema.equals(tablePrivDefinition.getSchema())
-            && table.equals(tablePrivDefinition.getTable())) {
-            return true;
-        } else {
-            return false;
-        }
+//        if (("%".equals(tablePrivDefinition.getHost())
+//            || host.equals(tablePrivDefinition.getHost())) && schema.equalsIgnoreCase(tablePrivDefinition.getSchema())
+//            && table.equalsIgnoreCase(tablePrivDefinition.getTable())) {
+//            return true;
+//        } else {
+//            return false;
+//        }
+        return true;
     }
 
 }

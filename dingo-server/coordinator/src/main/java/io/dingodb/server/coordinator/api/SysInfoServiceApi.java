@@ -99,10 +99,7 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
         }
         boolean deleteAll = ((PrivilegeAdaptor)getMetaAdaptor(Privilege.class)).delete(privilegeDefinition, subjectId);
         if (deleteAll) {
-            if (privilegeDefinition instanceof UserDefinition) {
-                ((UserAdaptor)getMetaAdaptor(User.class))
-                    .delete((UserDefinition) privilegeDefinition);
-            } else if (privilegeDefinition instanceof SchemaPrivDefinition) {
+            if (privilegeDefinition instanceof SchemaPrivDefinition) {
                 ((SchemaPrivAdaptor)getMetaAdaptor(SchemaPriv.class))
                     .delete((SchemaPrivDefinition) privilegeDefinition);
             } else if (privilegeDefinition instanceof TablePrivDefinition) {
@@ -157,14 +154,5 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
         }
     }
 
-    public List<String> getAllPrivilegeDict() {
-        Map<String, CommonId> privilegeDict =
-            ((PrivilegeDictAdaptor) getMetaAdaptor(PrivilegeDict.class)).getPrivilegeDict();
-        return privilegeDict.entrySet().stream().map(this::mappingPrivilegeIndex).collect(Collectors.toList());
-    }
-
-    public String mappingPrivilegeIndex(Map.Entry<String, CommonId> entry) {
-        return new StringBuilder(entry.getKey()).append("#").append(entry.getValue().seq()).toString();
-    }
 
 }

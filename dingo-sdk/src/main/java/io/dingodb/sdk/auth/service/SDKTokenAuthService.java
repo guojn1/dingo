@@ -20,13 +20,22 @@ import com.google.auto.service.AutoService;
 import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
 import io.dingodb.common.domain.Domain;
+import io.dingodb.net.Channel;
+import io.dingodb.net.Message;
+import io.dingodb.net.MessageListener;
 import io.dingodb.net.NetService;
 import io.dingodb.net.NetServiceProvider;
+import io.dingodb.common.auth.DingoRole;
+import io.dingodb.common.codec.ProtostuffCodec;
+import io.dingodb.common.privilege.PrivilegeDict;
+import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.net.service.AuthService;
 import io.dingodb.server.client.connector.impl.CoordinatorConnector;
+import io.dingodb.server.protocol.Tags;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 
@@ -53,10 +62,11 @@ public class SDKTokenAuthService implements AuthService<Authentication> {
     @Override
     public Authentication createAuthentication() {
         // sdk token auth depend on identity auth by coordinator
-        if (CoordinatorConnector.getDefault().verify()) {
+        if (DingoRole.SDK_CLIENT == Domain.role && CoordinatorConnector.getDefault().verify()) {
             String token = getToken();
             log.info("sdk token auth:" + token);
             if (StringUtils.isNotBlank(token)) {
+                registryFlushChannel();
                 Authentication authentication = Authentication.builder().token(token).role(Domain.role).build();
                 return authentication;
             } else {
@@ -65,6 +75,25 @@ public class SDKTokenAuthService implements AuthService<Authentication> {
         } else {
             return null;
         }
+    }
+
+    public void registryFlushChannel() {
+        Channel channel = netService.newChannel(CoordinatorConnector.getDefault().get());
+        channel.send(new Message(Tags.LISTEN_REGISTRY_FLUSH, "registry flush channel".getBytes()));
+        channel.setMessageListener(flush());
+    }
+
+    public MessageListener flush () {
+        return (message, ch) -> {
+            if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGES)) {
+                PrivilegeGather privilegeGather = ProtostuffCodec.read(message.content());
+                Domain.INSTANCE.privilegeGatherMap.put(privilegeGather.getUser(), privilegeGather);
+                log.info("reload privileges:" + privilegeGather);
+            } else if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGE_DICT)) {
+                List<String> privilegeDicts = ProtostuffCodec.read(message.content());
+                PrivilegeDict.reload(privilegeDicts);
+            }
+        };
     }
 
     @Override

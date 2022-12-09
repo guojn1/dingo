@@ -57,7 +57,7 @@ public class DingoSqlline {
         properties.setProperty("timeZone", timeZone.getID());
         properties.setProperty("user", "root");
         properties.setProperty("password", "123123");
-        Domain.role = DingoRole.JDBC_CLIENT;
+        Domain.role = DingoRole.SQLLINE;
         Domain domain = Domain.INSTANCE;
         domain.putAll(properties);
         Connection connection = DriverManager.getConnection("jdbc:dingo:", properties);

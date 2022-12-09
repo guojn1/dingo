@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class PrivilegeVerify {
+public abstract class PrivilegeVerify {
 
     private static Map<PrivilegeType, PrivilegeVerify> privilegeVerifyMap = new HashMap<>();
 
@@ -40,7 +40,7 @@ public class PrivilegeVerify {
         return "";
     }
 
-    public static boolean isVerify = false;
+    public static boolean isVerify = true;
 
     public boolean matchHost(PrivilegeDefinition privilegeDefinition, String host) {
         if ("%".equals(privilegeDefinition.getHost()) || host.equals(privilegeDefinition.getHost())) {
@@ -69,22 +69,18 @@ public class PrivilegeVerify {
         return userDef;
     }
 
-    public boolean verify(String user, String host, String schema, String table,
-                          String accessType, PrivilegeGather privilegeGather) {
-        return false;
-    }
+    public abstract boolean verify(String user, String host, String schema, String table,
+                          String accessType, PrivilegeGather privilegeGather);
 
-    public boolean apiVerify(String user, String host, CommonId schema, CommonId table,
-                             String accessType, PrivilegeGather privilegeGather) {
-        return true;
-    }
+    public abstract boolean apiVerify(String user, String host, CommonId schema, CommonId table,
+                             String accessType, PrivilegeGather privilegeGather);
 
     /**
      * privilege verify.
      * @param verifyType driver/sdk/api
      * @return true/false
      */
-    public boolean verify(PrivilegeType verifyType, String user, String host, String schema, String table,
+    public static boolean verify(PrivilegeType verifyType, String user, String host, String schema, String table,
                           String accessType, PrivilegeGather privilegeGather) {
         if (isVerify) {
             PrivilegeVerify privilegeVerify = privilegeVerifyMap.get(verifyType);
@@ -98,5 +94,9 @@ public class PrivilegeVerify {
                           String accessType, PrivilegeGather privilegeGather) {
         PrivilegeVerify privilegeVerify = privilegeVerifyMap.get(verifyType);
         return privilegeVerify.apiVerify(user, host, schema, table, accessType, privilegeGather);
+    }
+
+    public static PrivilegeVerify getPrivilegeVerify(PrivilegeType privilegeType) {
+        return privilegeVerifyMap.get(privilegeType);
     }
 }

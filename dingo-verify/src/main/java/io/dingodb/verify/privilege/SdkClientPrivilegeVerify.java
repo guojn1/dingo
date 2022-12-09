@@ -17,14 +17,23 @@
 package io.dingodb.verify.privilege;
 
 
+import io.dingodb.common.CommonId;
 import io.dingodb.common.privilege.PrivilegeGather;
 
 public class SdkClientPrivilegeVerify extends PrivilegeVerify{
 
-    @Override
     public boolean verify(String user, String host, String schema, String table,
                           String accessType, PrivilegeGather privilegeGather) {
 
         return true;
+    }
+
+    @Override
+    public boolean apiVerify(String user, String host, CommonId schema, CommonId table, String accessType, PrivilegeGather privilegeGather) {
+        return false;
+    }
+
+    public static void main(String[] args) {
+        System.out.println("---");
     }
 }

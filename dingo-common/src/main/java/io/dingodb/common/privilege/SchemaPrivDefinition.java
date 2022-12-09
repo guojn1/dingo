@@ -30,6 +30,8 @@ import lombok.ToString;
 public class SchemaPrivDefinition extends PrivilegeDefinition {
     private CommonId schema;
 
+    private CommonId commonId;
+
     Boolean[] privileges;
 
     @Builder(toBuilder = true)

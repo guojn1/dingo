@@ -44,8 +44,6 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class DingoSqlValidator extends SqlValidatorImpl {
-    PrivilegeVerify privilegeVerify = new PrivilegeVerify();
-
     private String user;
     private String host;
 
@@ -76,7 +74,6 @@ public class DingoSqlValidator extends SqlValidatorImpl {
     public void validateCall(SqlCall call, SqlValidatorScope scope) {
         super.validateCall(call, scope);
 
-        verify(call);
     }
 
     @Override
@@ -124,30 +121,9 @@ public class DingoSqlValidator extends SqlValidatorImpl {
             schema = node.names.get(0);
             table = node.names.get(1);
         }
-        if (!privilegeVerify.verify(PrivilegeType.SQL, user,
+        if (!PrivilegeVerify.verify(PrivilegeType.SQL, user,
             host, schema, table, sqlAccessType, Domain.INSTANCE.privilegeGatherMap.get(user))) {
-            throw new ApiTerminateException("Access denied for user '%s'@'%s' to %s", user, host, schema);
+            throw new RuntimeException(String.format("Access denied for user '%s'@'%s' to %s", user, host, schema));
         }
-    }
-
-    public void verify(SqlCall call) {
-        String accessType = "";
-        if (call instanceof DingoSqlCreateTable) {
-            accessType = "create";
-        } else if (call instanceof SqlDropUser) {
-            accessType = "drop";
-        } else if (call instanceof SqlCreateUser) {
-            accessType = "create_user";
-        } else if (call instanceof SqlRevoke || call instanceof SqlGrant) {
-            accessType = "grant";
-        } else if (call instanceof SqlFlushPrivileges) {
-            accessType = "reload";
-        } else if (call instanceof SqlSetPassword) {
-            if (!"root".equals(user)) {
-                throw new ApiTerminateException("Access denied");
-            }
-        }
-        privilegeVerify.verify(PrivilegeType.SQL, user, host, null, null,
-            accessType, Domain.INSTANCE.privilegeGatherMap.get(user));
     }
 }

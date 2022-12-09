@@ -120,13 +120,6 @@ public final class Services {
         });
     }
 
-    public static void initReloadService() {
-        NET.registerTagMessageListener("LISTEN_RELOAD_PRIVILEGES", (message, channel) -> {
-            PrivilegeGather privilegeGather = ProtostuffCodec.read(message.content());
-            Domain.INSTANCE.privilegeGatherMap.put(privilegeGather.getUser(), privilegeGather);
-        });
-    }
-
     public static Channel openNewChannel(String host, int port) {
         int count = 0;
         while (count < 3) {

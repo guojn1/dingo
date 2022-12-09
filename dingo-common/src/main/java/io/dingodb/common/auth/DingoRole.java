@@ -21,5 +21,6 @@ public enum DingoRole {
     DRIVER,
     SDK_CLIENT,
     COORDINATOR,
-    EXECUTOR
+    EXECUTOR,
+    SQLLINE
 }

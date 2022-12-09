@@ -77,7 +77,7 @@ public class TokenAuthService implements AuthService<Authentication> {
             if (clientInfo == null) {
                 throw new Exception("xxx");
             }
-            sysInfoServiceApi.getAllPrivilegeDict();
+            //sysInfoServiceApi.getAllPrivilegeDict();
             Certificate certificate = Certificate.builder().code(100).build();
             return certificate;
         } catch (Exception e) {

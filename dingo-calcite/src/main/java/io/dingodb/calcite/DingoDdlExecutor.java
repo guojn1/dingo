@@ -363,32 +363,6 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
     }
 
     public void execute(@NonNull SqlShowGrants dingoSqlShowGrants, CalcitePrepare.Context context) {
-        PrivilegeGather privilegeGather = sysInfoService.getPrivilegeDef(null, dingoSqlShowGrants.user);
-        List<SchemaPrivDefinition> schemaPrivDefinitions = privilegeGather.getSchemaPrivDefMap();
-        List<TablePrivDefinition> tablePrivDefinitions = privilegeGather.getTablePrivDefMap();
-        List<UserDefinition> userDefinitions = privilegeGather.getUserDefMap();
-
-        schemaPrivDefinitions = schemaPrivDefinitions.stream().filter(schemaPrivDefinition -> {
-            return schemaPrivDefinition.getHost().equals(dingoSqlShowGrants.host);
-        }).collect(Collectors.toList());
-        tablePrivDefinitions = tablePrivDefinitions.stream().filter(tablePrivDefinition -> {
-            return tablePrivDefinition.getHost().equals(dingoSqlShowGrants.host);
-        }).collect(Collectors.toList());
-        userDefinitions = userDefinitions.stream().filter(userDefinition -> {
-            return userDefinition.getHost().equals(dingoSqlShowGrants.host);
-        }).collect(Collectors.toList());
-
-        if (userDefinitions.size() == 0) {
-            return;
-        }
-
-        List<SqlGrant> dingoSqlGrants = new ArrayList<>();
-        SqlGrant userGrant = null;
-        if ((userGrant = getUserGrant(dingoSqlShowGrants, userDefinitions)) != null) {
-            dingoSqlGrants.add(userGrant);
-        }
-        dingoSqlGrants.addAll(getSchemaGrant(dingoSqlShowGrants, schemaPrivDefinitions));
-        dingoSqlGrants.addAll(getTableGrant(dingoSqlShowGrants, tablePrivDefinitions));
 
         //DingoSqlGrant sqlGrant = new DingoSqlGrant();
     }

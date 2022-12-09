@@ -27,6 +27,7 @@ import io.dingodb.meta.SysInfoService;
 import io.dingodb.meta.SysInfoServiceProvider;
 import io.dingodb.net.service.AuthService;
 import io.dingodb.verify.plugin.AlgorithmPlugin;
+import io.dingodb.verify.privilege.PrivilegeType;
 import io.dingodb.verify.privilege.PrivilegeVerify;
 import io.dingodb.verify.token.TokenManager;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,7 @@ import java.util.Map;
 @Slf4j
 public class JDBCAuthService implements AuthService<Authentication> {
 
-    PrivilegeVerify privilegeVerify = new PrivilegeVerify();
+    PrivilegeVerify privilegeVerify = PrivilegeVerify.getPrivilegeVerify(PrivilegeType.SQL);
 
     private SysInfoService sysInfoService;
 

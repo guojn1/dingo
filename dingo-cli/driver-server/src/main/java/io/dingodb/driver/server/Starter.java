@@ -18,14 +18,23 @@ package io.dingodb.driver.server;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import io.dingodb.common.codec.ProtostuffCodec;
+import io.dingodb.common.concurrent.Executors;
 import io.dingodb.common.config.DingoConfiguration;
+import io.dingodb.common.domain.Domain;
+import io.dingodb.common.privilege.PrivilegeDict;
+import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.exec.Services;
-import io.dingodb.net.NetService;
-import io.dingodb.net.NetServiceProvider;
+import io.dingodb.net.*;
+import io.dingodb.server.client.connector.impl.CoordinatorConnector;
 import io.dingodb.server.driver.DriverProxyServer;
+import io.dingodb.server.protocol.Tags;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
 import java.util.ServiceLoader;
 
+@Slf4j
 public class Starter {
 
     @Parameter(names = "--help", help = true, order = 0)
@@ -53,9 +62,43 @@ public class Starter {
         NetService netService = ServiceLoader.load(NetServiceProvider.class).iterator().next().get();
 
         Services.initControlMsgService();
-        Services.initReloadService();
         netService.listenPort(port);
         DingoConfiguration.instance().setPort(port);
         DriverProxyServer driverProxyServer = new DriverProxyServer();
+        registryFlushChannel();
+        log.info("Starting driver server success.");
+    }
+
+    public void registryFlushChannel() {
+        Executors.submit("coordinator-registry-flush", this::registryChannel);
+    }
+
+    public void registryChannel() {
+        int times = 10;
+        int sleep = 500;
+        while (!CoordinatorConnector.getDefault().verify() && times-- > 0) {
+            try {
+                Thread.sleep(sleep);
+                sleep += sleep;
+            } catch (InterruptedException e) {
+                log.error("Wait coordinator connector ready, but interrupted.");
+            }
+        }
+        Channel channel = NetService.getDefault().newChannel(CoordinatorConnector.getDefault().get());
+        channel.setMessageListener(flush());
+        channel.send(new Message(Tags.LISTEN_REGISTRY_FLUSH, "registry flush channel".getBytes()));
+    }
+
+    public MessageListener flush () {
+        return (message, ch) -> {
+            if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGES)) {
+                PrivilegeGather privilegeGather = ProtostuffCodec.read(message.content());
+                Domain.INSTANCE.privilegeGatherMap.put(privilegeGather.getUser(), privilegeGather);
+                log.info("reload privileges:" + privilegeGather);
+            } else if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGE_DICT)) {
+                List<String> privilegeDicts = ProtostuffCodec.read(message.content());
+                PrivilegeDict.reload(privilegeDicts);
+            }
+        };
     }
 }

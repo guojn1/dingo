@@ -16,6 +16,7 @@
 
 package io.dingodb.common.privilege;
 
+import io.dingodb.common.CommonId;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

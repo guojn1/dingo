@@ -21,12 +21,17 @@ import io.dingodb.calcite.DingoDdlParserFactory;
 import io.dingodb.calcite.DingoParser;
 import io.dingodb.calcite.DingoSchema;
 import io.dingodb.calcite.MetaCache;
+import io.dingodb.calcite.grammar.ddl.*;
 import io.dingodb.calcite.type.converter.DefinitionMapper;
 import io.dingodb.calcite.visitor.DingoJobVisitor;
 import io.dingodb.common.Location;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.exec.base.Id;
 import io.dingodb.exec.base.Job;
 import io.dingodb.exec.base.JobManager;
+import io.dingodb.net.error.ApiTerminateException;
+import io.dingodb.verify.privilege.PrivilegeType;
+import io.dingodb.verify.privilege.PrivilegeVerify;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.AvaticaParameter;
@@ -41,11 +46,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.server.DdlExecutor;
-import org.apache.calcite.sql.SqlExplain;
-import org.apache.calcite.sql.SqlExplainFormat;
-import org.apache.calcite.sql.SqlExplainLevel;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.*;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -173,6 +174,31 @@ public final class DingoDriverParser extends DingoParser {
         return parameters;
     }
 
+    public void verify(SqlNode sqlNode) {
+        String user = connection.getContext().getOption("user");
+        String host = connection.getContext().getOption("host");
+        String accessType = "";
+        if (sqlNode instanceof DingoSqlCreateTable) {
+            accessType = "create";
+        } else if (sqlNode instanceof SqlDropUser) {
+            accessType = "drop";
+        } else if (sqlNode instanceof SqlCreateUser) {
+            accessType = "create_user";
+        } else if (sqlNode instanceof SqlRevoke || sqlNode instanceof SqlGrant) {
+            accessType = "grant";
+        } else if (sqlNode instanceof SqlFlushPrivileges) {
+            accessType = "reload";
+        } else if (sqlNode instanceof SqlSetPassword) {
+            if (!"root".equals(user)) {
+                throw new ApiTerminateException("Access denied");
+            }
+        }
+        if (!PrivilegeVerify.verify(PrivilegeType.SQL, user, host, null, null,
+            accessType, Domain.INSTANCE.privilegeGatherMap.get(user))) {
+            throw new RuntimeException(String.format("Access denied for user '%s'@'%s'", user, host));
+        }
+    }
+
     @Nonnull
     public Meta.Signature parseQuery(
         JobManager jobManager,
@@ -184,6 +210,7 @@ public final class DingoDriverParser extends DingoParser {
         if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
             final DdlExecutor ddlExecutor = PARSER_CONFIG.parserFactory().getDdlExecutor();
             ddlExecutor.executeDdl(connection, sqlNode);
+            verify(sqlNode);
             return new DingoSignature(
                 ImmutableList.of(),
                 sql,

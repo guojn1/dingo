@@ -19,12 +19,15 @@ package io.dingodb.server.executor;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.Executive;
 import io.dingodb.common.auth.DingoRole;
+import io.dingodb.common.codec.ProtostuffCodec;
+import io.dingodb.common.concurrent.Executors;
 import io.dingodb.common.config.DingoConfiguration;
 import io.dingodb.common.domain.Domain;
+import io.dingodb.common.privilege.PrivilegeDict;
+import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.store.Part;
 import io.dingodb.exec.Services;
-import io.dingodb.net.NetService;
-import io.dingodb.net.NetServiceProvider;
+import io.dingodb.net.*;
 import io.dingodb.net.api.Ping;
 import io.dingodb.server.ExecutiveRegistry;
 import io.dingodb.server.api.LogLevelApi;
@@ -35,6 +38,7 @@ import io.dingodb.server.executor.api.DriverProxyApi;
 import io.dingodb.server.executor.api.ExecutorApi;
 import io.dingodb.server.executor.api.TableStoreApi;
 import io.dingodb.server.executor.config.ExecutorConfiguration;
+import io.dingodb.server.protocol.Tags;
 import io.dingodb.server.protocol.meta.Executor;
 import io.dingodb.store.api.StoreInstance;
 import io.dingodb.store.api.StoreService;
@@ -51,6 +55,8 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
+
+import static io.dingodb.net.Message.API_CANCEL;
 
 @Slf4j
 public class ExecutorServer {
@@ -89,7 +95,42 @@ public class ExecutorServer {
         initAllApi();
         initStore();
         loadExecutive();
+        registryFlushChannel();
         log.info("Starting executor success.");
+    }
+
+    public void registryFlushChannel() {
+        Executors.submit("coordinator-registry-flush", this::registryChannel);
+    }
+
+    public void registryChannel() {
+        int times = 10;
+        int sleep = 500;
+        while (!CoordinatorConnector.getDefault().verify() && times-- > 0) {
+            try {
+                Thread.sleep(sleep);
+                sleep += sleep;
+            } catch (InterruptedException e) {
+                log.error("Wait coordinator connector ready, but interrupted.");
+            }
+        }
+
+        Channel channel = netService.newChannel(CoordinatorConnector.getDefault().get());
+        channel.setMessageListener(flush());
+        channel.send(new Message(Tags.LISTEN_REGISTRY_FLUSH, "registry flush channel".getBytes()));
+    }
+
+    public MessageListener flush () {
+        return (message, ch) -> {
+            if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGES)) {
+                PrivilegeGather privilegeGather = ProtostuffCodec.read(message.content());
+                Domain.INSTANCE.privilegeGatherMap.put(privilegeGather.getUser(), privilegeGather);
+                log.info("reload privileges:" + privilegeGather);
+            } else if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGE_DICT)) {
+                List<String> privilegeDicts = ProtostuffCodec.read(message.content());
+                PrivilegeDict.reload(privilegeDicts);
+            }
+        };
     }
 
     private void initId() throws IOException {
@@ -142,7 +183,6 @@ public class ExecutorServer {
     private NetService loadNetService() {
         NetService netService = ServiceLoader.load(NetServiceProvider.class).iterator().next().get();
         Services.initNetService();
-        Services.initReloadService();
         return netService;
     }
 

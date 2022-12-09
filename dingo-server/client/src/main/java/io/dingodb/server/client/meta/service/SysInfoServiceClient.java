@@ -16,6 +16,7 @@
 
 package io.dingodb.server.client.meta.service;
 
+import io.dingodb.common.Location;
 import io.dingodb.meta.SysInfoService;
 import io.dingodb.net.Channel;
 import io.dingodb.net.Message;
@@ -39,7 +40,8 @@ public class SysInfoServiceClient implements SysInfoService {
     }
 
     public SysInfoServiceClient(CoordinatorConnector connector) {
-        this.sysInfoServiceApi = ApiRegistry.getDefault().proxy(SysInfoServiceApi.class, connector);
+        this.sysInfoServiceApi = ApiRegistry.getDefault().proxy(SysInfoServiceApi.class,
+            NetService.getDefault().newChannel(connector.get()));
         this.connector = connector;
     }
 

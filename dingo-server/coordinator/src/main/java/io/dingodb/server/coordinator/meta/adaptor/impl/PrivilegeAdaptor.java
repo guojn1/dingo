@@ -32,10 +32,7 @@ import io.dingodb.net.NetService;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.Tags;
-import io.dingodb.server.protocol.meta.Privilege;
-import io.dingodb.server.protocol.meta.SchemaPriv;
-import io.dingodb.server.protocol.meta.TablePriv;
-import io.dingodb.server.protocol.meta.User;
+import io.dingodb.server.protocol.meta.*;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -68,6 +65,7 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
 
         metaMap.forEach((k, v) -> privilegeMap.computeIfAbsent(v.getSubjectId(), p -> new ArrayList<>()).add(v));
 
+        NetService.getDefault().registerTagMessageListener(Tags.LISTEN_REGISTRY_FLUSH, this::registryFlushChannel);
         NetService.getDefault().registerTagMessageListener(Tags.LISTEN_RELOAD_PRIVILEGES, this::flushPrivileges);
     }
 
@@ -100,6 +98,24 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         privilegeMap.computeIfAbsent(privilege.getSubjectId(), k -> new ArrayList<>()).add(privilege);
     }
 
+    private void registryFlushChannel(Message message, Channel channel) {
+        if (!channels.contains(channel)) {
+            channels.add(channel);
+            List<String> privilege = getAllPrivilegeDict();
+            channel.send(new Message(Tags.LISTEN_RELOAD_PRIVILEGE_DICT, ProtostuffCodec.write(privilege)));
+        }
+    }
+
+    public List<String> getAllPrivilegeDict() {
+        Map<String, CommonId> privilegeDict =
+            ((PrivilegeDictAdaptor) getMetaAdaptor(PrivilegeDict.class)).getPrivilegeDict();
+        return privilegeDict.entrySet().stream().map(this::mappingPrivilegeIndex).collect(Collectors.toList());
+    }
+
+    public String mappingPrivilegeIndex(Map.Entry<String, CommonId> entry) {
+        return new StringBuilder(entry.getKey()).append("#").append(entry.getValue().seq()).toString();
+    }
+
     private void flushPrivileges(Message message, Channel channel) {
         log.info("flush privileges, user:" + flushPrivileges.size() + ", channel size:" + channels.size());
         flushPrivileges.forEach(user -> {
@@ -112,6 +128,8 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
                 }
             });
         });
+        channel.close();
+        log.info("flush privileges complete.");
     }
 
     @Override
@@ -185,8 +203,10 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
     public UserDefinition metaToDefinition(User user) {
         UserDefinition userDefinition = UserDefinition.builder().user(user.getUser())
             .host(user.getHost())
+            .plugin(user.getPlugin())
+            .password(user.getPassword())
             .build();
-        Boolean[] privilegeIndexs = new Boolean[34];
+        Boolean[] privilegeIndexs = new Boolean[35];
 
         if (!"root".equalsIgnoreCase(user.getUser())) {
             for (int i = 0; i < privilegeIndexs.length; i ++) {
@@ -212,15 +232,13 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
             .host(schemaPriv.getHost())
             .schema(schemaPriv.getSchema())
             .build();
-        Boolean[] privilegeIndexs = new Boolean[34];
+        Boolean[] privilegeIndexs = new Boolean[35];
         for (int i = 0; i < privilegeIndexs.length; i ++) {
             privilegeIndexs[i] = false;
         }
         Optional.ofNullable(privilegeMap.get(schemaPriv.getId())).ifPresent(privileges -> {
             privileges.forEach(privilege -> privilegeIndexs[privilege.getPrivilegeIndex()] = true);
         });
-        //privilegeMap.get(schemaPriv.getId())
-        //    .forEach(privilege -> privilegeIndexs[privilege.getPrivilegeIndex()] = true);
         schemaPrivDefinition.setPrivileges(privilegeIndexs);
         return schemaPrivDefinition;
     }
@@ -232,7 +250,7 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
             .schema(tablePriv.getSchema())
             .table(tablePriv.getTable())
             .build();
-        Boolean[] privilegeIndexs = new Boolean[34];
+        Boolean[] privilegeIndexs = new Boolean[35];
         for (int i = 0; i < privilegeIndexs.length; i ++) {
             privilegeIndexs[i] = false;
         }
