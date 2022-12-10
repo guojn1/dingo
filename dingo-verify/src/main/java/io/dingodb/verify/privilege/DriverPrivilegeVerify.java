@@ -28,6 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -35,8 +36,9 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
     public DriverPrivilegeVerify() {
     }
 
-    public boolean verify(String user, String host, String schema, String table,
-                          String accessType, PrivilegeGather privilegeGather) {
+    @Override
+    public boolean verify(String user, String host, CommonId schema, CommonId table,
+                             String accessType, PrivilegeGather privilegeGather) {
         if (DingoRole.SQLLINE == Domain.role) {
             return true;
         }
@@ -50,9 +52,12 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
         if (userDef != null && userDef.getPrivileges()[index]) {
             return true;
         } else {
-            /*
-            List<SchemaPrivDefinition> schemaPrivDefs = privilegeGather.getSchemaPrivDefMap().stream()
-                .filter(schemaPrivDefinition -> match(schemaPrivDefinition, host, schema))
+            if (schema == null) {
+                return false;
+            }
+            List<SchemaPrivDefinition> schemaPrivDefs = privilegeGather.getSchemaPrivDefMap().entrySet().stream()
+                .filter(entry -> match(entry, host, schema))
+                .map(Map.Entry::getValue)
                 .collect(Collectors.toList());
             SchemaPrivDefinition schemaPrivDef = null;
             if (schemaPrivDefs.size() > 0) {
@@ -66,8 +71,9 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
                     return false;
                 }
             } else {
-                List<TablePrivDefinition> tablePrivDefs = privilegeGather.getTablePrivDefMap().stream()
-                    .filter(tablePrivDefinition -> match(tablePrivDefinition, host, schema, table))
+                List<TablePrivDefinition> tablePrivDefs = privilegeGather.getTablePrivDefMap().entrySet().stream()
+                    .filter(entry -> match(entry, host, schema, table))
+                    .map(Map.Entry::getValue)
                     .collect(Collectors.toList());
                 TablePrivDefinition tablePrivDef = null;
                 if (tablePrivDefs.size() > 0) {
@@ -80,34 +86,27 @@ public class DriverPrivilegeVerify extends PrivilegeVerify {
                     return false;
                 }
             }
-            */
-            return true;
         }
     }
 
-    @Override
-    public boolean apiVerify(String user, String host, CommonId schema, CommonId table, String accessType, PrivilegeGather privilegeGather) {
-        return false;
-    }
-
-    public boolean match(SchemaPrivDefinition schemaPrivDefinition, String host, String schema) {
-        if (("%".equals(schemaPrivDefinition.getHost())
-            || host.equals(schemaPrivDefinition.getHost())) && schema.equals(schemaPrivDefinition.getSchema())) {
+    public boolean match(Map.Entry<CommonId, SchemaPrivDefinition> entry, String host, CommonId schema) {
+        if (("%".equals(entry.getValue().getHost())
+            || host.equals(entry.getValue().getHost())) && schema.equals(entry.getKey())) {
             return true;
         } else {
             return false;
         }
     }
 
-    public boolean match(TablePrivDefinition tablePrivDefinition, String host, String schema, String table) {
-//        if (("%".equals(tablePrivDefinition.getHost())
-//            || host.equals(tablePrivDefinition.getHost())) && schema.equalsIgnoreCase(tablePrivDefinition.getSchema())
-//            && table.equalsIgnoreCase(tablePrivDefinition.getTable())) {
-//            return true;
-//        } else {
-//            return false;
-//        }
-        return true;
+    public boolean match(Map.Entry<CommonId, TablePrivDefinition> entry, String host,
+                         CommonId schema, CommonId table) {
+        if (("%".equals(entry.getValue().getHost())
+            || host.equals(entry.getValue().getHost())) && schema.equals(entry.getValue().getSchema())
+            && table.equals(entry.getKey())) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
 }

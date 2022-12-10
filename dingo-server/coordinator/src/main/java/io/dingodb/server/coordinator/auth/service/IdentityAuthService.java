@@ -81,7 +81,7 @@ public class IdentityAuthService implements AuthService<Authentication> {
             String host = authentication.getHost();
             String clientPassword = authentication.getPassword();
 
-            PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(null, user);
+            PrivilegeGather privilegeGather = sysInfoServiceApi.getPrivilegeDef(null, user, host);
             UserDefinition userDef = privilegeGather.getUserDef();
 
             if (userDef == null) {
@@ -93,7 +93,7 @@ public class IdentityAuthService implements AuthService<Authentication> {
             Certificate certificate = Certificate.builder().code(100).build();
             if (digestPwd.equals(password)) {
                 Map<String, Object> clientInfo = new HashMap<>();
-                clientInfo.put("username", user);
+                clientInfo.put("user", user);
                 clientInfo.put("host", host);
                 TokenManager tokenManager = TokenManager.getInstance("0123456789");
                 String token = tokenManager.createToken(clientInfo);

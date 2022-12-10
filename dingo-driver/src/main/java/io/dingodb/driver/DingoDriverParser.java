@@ -17,11 +17,16 @@
 package io.dingodb.driver;
 
 import com.google.common.collect.ImmutableList;
-import io.dingodb.calcite.DingoDdlParserFactory;
 import io.dingodb.calcite.DingoParser;
 import io.dingodb.calcite.DingoSchema;
 import io.dingodb.calcite.MetaCache;
-import io.dingodb.calcite.grammar.ddl.*;
+import io.dingodb.calcite.grammar.ddl.DingoSqlCreateTable;
+import io.dingodb.calcite.grammar.ddl.SqlCreateUser;
+import io.dingodb.calcite.grammar.ddl.SqlDropUser;
+import io.dingodb.calcite.grammar.ddl.SqlFlushPrivileges;
+import io.dingodb.calcite.grammar.ddl.SqlGrant;
+import io.dingodb.calcite.grammar.ddl.SqlRevoke;
+import io.dingodb.calcite.grammar.ddl.SqlSetPassword;
 import io.dingodb.calcite.type.converter.DefinitionMapper;
 import io.dingodb.calcite.visitor.DingoJobVisitor;
 import io.dingodb.common.Location;
@@ -46,7 +51,11 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.server.DdlExecutor;
-import org.apache.calcite.sql.*;
+import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlExplainFormat;
+import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -194,7 +203,7 @@ public final class DingoDriverParser extends DingoParser {
             }
         }
         if (!PrivilegeVerify.verify(PrivilegeType.SQL, user, host, null, null,
-            accessType, Domain.INSTANCE.privilegeGatherMap.get(user))) {
+            accessType, Domain.INSTANCE.privilegeGatherMap.get(user + "#" + host))) {
             throw new RuntimeException(String.format("Access denied for user '%s'@'%s'", user, host));
         }
     }

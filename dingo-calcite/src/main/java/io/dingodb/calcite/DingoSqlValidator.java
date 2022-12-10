@@ -24,7 +24,10 @@ import io.dingodb.calcite.grammar.ddl.SqlFlushPrivileges;
 import io.dingodb.calcite.grammar.ddl.SqlGrant;
 import io.dingodb.calcite.grammar.ddl.SqlRevoke;
 import io.dingodb.calcite.grammar.ddl.SqlSetPassword;
+import io.dingodb.common.CommonId;
 import io.dingodb.common.domain.Domain;
+import io.dingodb.meta.SysInfoService;
+import io.dingodb.meta.SysInfoServiceProvider;
 import io.dingodb.net.error.ApiTerminateException;
 import io.dingodb.verify.privilege.PrivilegeType;
 import io.dingodb.verify.privilege.PrivilegeVerify;
@@ -44,6 +47,8 @@ import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class DingoSqlValidator extends SqlValidatorImpl {
+    private static SysInfoService sysInfoService;
+
     private String user;
     private String host;
 
@@ -121,8 +126,13 @@ public class DingoSqlValidator extends SqlValidatorImpl {
             schema = node.names.get(0);
             table = node.names.get(1);
         }
+        if (sysInfoService == null) {
+            sysInfoService = SysInfoServiceProvider.getRoot();
+        }
+        CommonId schemaId = sysInfoService.getSchemaIdByCache(schema);
+        CommonId tableId = sysInfoService.getTableIdByCache(schemaId, table);
         if (!PrivilegeVerify.verify(PrivilegeType.SQL, user,
-            host, schema, table, sqlAccessType, Domain.INSTANCE.privilegeGatherMap.get(user))) {
+            host, schemaId, tableId, sqlAccessType, Domain.INSTANCE.privilegeGatherMap.get(user + "#" + host))) {
             throw new RuntimeException(String.format("Access denied for user '%s'@'%s' to %s", user, host, schema));
         }
     }

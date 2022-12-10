@@ -20,6 +20,8 @@ import com.google.auto.service.AutoService;
 import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
 import io.dingodb.common.domain.Domain;
+import io.dingodb.meta.SysInfoService;
+import io.dingodb.meta.SysInfoServiceProvider;
 import io.dingodb.net.Channel;
 import io.dingodb.net.Message;
 import io.dingodb.net.MessageListener;
@@ -35,6 +37,8 @@ import io.dingodb.server.protocol.Tags;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -42,6 +46,8 @@ import java.util.ServiceLoader;
 @Slf4j
 public class SDKTokenAuthService implements AuthService<Authentication> {
     private static final AuthService INSTANCE = new SDKTokenAuthService();
+
+    private SysInfoService sysInfoService;
 
     private final NetService netService = ServiceLoader.load(NetServiceProvider.class).iterator().next().get();
 
@@ -66,7 +72,6 @@ public class SDKTokenAuthService implements AuthService<Authentication> {
             String token = getToken();
             log.info("sdk token auth:" + token);
             if (StringUtils.isNotBlank(token)) {
-                registryFlushChannel();
                 Authentication authentication = Authentication.builder().token(token).role(Domain.role).build();
                 return authentication;
             } else {
@@ -107,13 +112,12 @@ public class SDKTokenAuthService implements AuthService<Authentication> {
             Map<String, Object[]> authContent = netService.auth(CoordinatorConnector.getDefault().get());
             if (authContent != null) {
                 Object[] identityRet = authContent.get("identity");
-                Certificate certificate = (Certificate) identityRet[0];
+                Certificate certificate = (Certificate) identityRet[1];
                 if (certificate != null) {
                     String token = certificate.getToken();
                     if (StringUtils.isNotBlank(token)) {
-                        // if sdk identity auth success, then mapping return privilege to sdk invoke by
-                        // Map<String, Boolean[]> sdkPrivilege = certificate.privilege2SDK();
-                        // identityRet[1] = sdkPrivilege;
+                        registryFlushChannel();
+                        //loadPrivileges();
                     }
                     return token;
                 }

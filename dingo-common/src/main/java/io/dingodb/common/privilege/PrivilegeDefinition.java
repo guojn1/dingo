@@ -33,6 +33,10 @@ public class PrivilegeDefinition {
     String user;
     String host;
 
+    public String key() {
+        return new StringBuilder(user).append("#").append(host).toString();
+    }
+
     List<Integer> privilegeIndexs;
 
     public PrivilegeDefinition(String user, String host) {

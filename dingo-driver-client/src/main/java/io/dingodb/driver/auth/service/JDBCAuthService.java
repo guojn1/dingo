@@ -65,7 +65,7 @@ public class JDBCAuthService implements AuthService<Authentication> {
         String user = (String) domain.getInfo("user");
         String host = (String) domain.getInfo("host");
         String password = (String) domain.getInfo("password");
-        if (user == null && host == null) {
+        if (host == null) {
             return null;
         } else {
             Authentication authentication = Authentication.builder()
@@ -100,10 +100,9 @@ public class JDBCAuthService implements AuthService<Authentication> {
         Certificate certificate = Certificate.builder().code(100).build();
         log.info("digestPwd:" + digestPwd + ", login pwd:" + password);
         if (digestPwd.equals(password)) {
+            PrivilegeGather privilegeGather = Domain.INSTANCE.privilegeGatherMap.computeIfAbsent(user + "#" + host,
+                k -> sysInfoService.getPrivilegeDef(null, user, host));
             log.info("cache privileges:" + Domain.INSTANCE.privilegeGatherMap);
-            PrivilegeGather privilegeGather = Domain.INSTANCE.privilegeGatherMap.computeIfAbsent(user,
-                k -> sysInfoService.getPrivilegeDef(null, user));
-
             Map<String, Object> clientInfo = new HashMap<>();
             clientInfo.put("username", user);
             clientInfo.put("host", host);

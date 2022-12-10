@@ -16,6 +16,7 @@
 
 package io.dingodb.common.domain;
 
+import io.dingodb.common.CommonId;
 import io.dingodb.common.auth.DingoRole;
 import io.dingodb.common.privilege.PrivilegeGather;
 import lombok.Getter;
@@ -36,6 +37,10 @@ public class Domain {
     public static Domain INSTANCE = new Domain();
 
     public volatile Map<String, PrivilegeGather> privilegeGatherMap = new ConcurrentHashMap<>();
+
+    public Map<String, CommonId> schemaIdMap = new ConcurrentHashMap<>();
+
+    public Map<CommonId, Map<String, CommonId>> tableIdMap = new ConcurrentHashMap<>();
 
     public boolean containsKey(String key) {
         return info.containsKey(key);

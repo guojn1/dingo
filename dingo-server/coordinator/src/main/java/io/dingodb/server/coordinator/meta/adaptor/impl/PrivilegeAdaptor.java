@@ -32,7 +32,11 @@ import io.dingodb.net.NetService;
 import io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry;
 import io.dingodb.server.coordinator.store.MetaStore;
 import io.dingodb.server.protocol.Tags;
-import io.dingodb.server.protocol.meta.*;
+import io.dingodb.server.protocol.meta.Privilege;
+import io.dingodb.server.protocol.meta.PrivilegeDict;
+import io.dingodb.server.protocol.meta.SchemaPriv;
+import io.dingodb.server.protocol.meta.TablePriv;
+import io.dingodb.server.protocol.meta.User;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -118,9 +122,12 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
 
     private void flushPrivileges(Message message, Channel channel) {
         log.info("flush privileges, user:" + flushPrivileges.size() + ", channel size:" + channels.size());
-        flushPrivileges.forEach(user -> {
+        flushPrivileges.forEach(flush -> {
+            String[] userIdentity = flush.split("#");
+            String user = userIdentity[0];
+            String host = userIdentity[1];
             channels.forEach(channel1 -> {
-                PrivilegeGather privilegeGather = getPrivilegeGather(user, channel1.remoteLocation().getHost());
+                PrivilegeGather privilegeGather = getPrivilegeGather(user, host);
                 log.info("user:" + user + ",privilegeGather:" + privilegeGather
                     + ", channel:" + channel1.remoteLocation() + ", is active:" + channel1.isActive());
                 if (channel1.isActive()) {
@@ -152,8 +159,8 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
             }
             return v;
         });
-        if (!flushPrivileges.contains(definition.getUser())) {
-            flushPrivileges.add(definition.getUser());
+        if (!flushPrivileges.contains(definition.key())) {
+            flushPrivileges.add(definition.key());
         }
         return privileges == null ? true : false;
     }
@@ -180,8 +187,8 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
             privilege.setId(newId(privilege));
             this.doSave(privilege);
         });
-        if (!flushPrivileges.contains(definition.getUser())) {
-            flushPrivileges.add(definition.getUser());
+        if (!flushPrivileges.contains(definition.key())) {
+            flushPrivileges.add(definition.key());
         }
         log.info("privilege map:" + privilegeMap);
     }

@@ -16,6 +16,7 @@
 
 package io.dingodb.server.api;
 
+import io.dingodb.common.CommonId;
 import io.dingodb.common.annotation.ApiDeclaration;
 import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.PrivilegeGather;
@@ -45,8 +46,14 @@ public interface SysInfoServiceApi {
     void revoke(PrivilegeDefinition privilegeDefinition);
 
     @ApiDeclaration
-    PrivilegeGather getPrivilegeDef(Channel channel, String user);
+    PrivilegeGather getPrivilegeDef(Channel channel, String user, String host);
 
     @ApiDeclaration
     List<UserDefinition> getUserDefinition(String user);
+
+    @ApiDeclaration
+    public CommonId getSchemaId(String schema);
+
+    @ApiDeclaration
+    public CommonId getTableId(CommonId schemaId, String table);
 }

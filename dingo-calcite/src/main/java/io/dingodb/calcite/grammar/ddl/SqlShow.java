@@ -29,8 +29,8 @@ public class SqlShow extends SqlDdl {
     /**
      * Creates a SqlDdl.
      *
-     * @param operator
-     * @param pos
+     * @param operator show
+     * @param pos pos
      */
     protected SqlShow(SqlOperator operator, SqlParserPos pos) {
         super(operator, pos);

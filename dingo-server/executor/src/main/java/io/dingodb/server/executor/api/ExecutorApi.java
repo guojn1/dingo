@@ -19,6 +19,7 @@ package io.dingodb.server.executor.api;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.auth.Authentication;
 import io.dingodb.common.auth.Certificate;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.common.store.KeyValue;
 import io.dingodb.net.Channel;
 import io.dingodb.net.NetService;
@@ -164,10 +165,10 @@ public class ExecutorApi implements io.dingodb.server.api.ExecutorApi {
     private boolean verify(Channel channel, CommonId schema, CommonId tableId, String accessType) {
         Object[] objects = channel.auth().get("identity");
         Authentication authentication = (Authentication) objects[0];
-        Certificate certificate = (Certificate) objects[1];
-        PrivilegeVerify verify = new PrivilegeVerify();
-        verify.apiVerify(PrivilegeType.API, authentication.getUsername(), authentication.getHost(),
-            schema, tableId , accessType, certificate.getPrivilegeGather());
+        PrivilegeVerify verify = PrivilegeVerify.getPrivilegeVerify(PrivilegeType.API);
+        verify.verify(PrivilegeType.API, authentication.getUsername(), authentication.getHost(),
+            schema, tableId , accessType, Domain.INSTANCE.privilegeGatherMap.get(authentication.getUsername()
+                + "#" + authentication.getHost()));
         return false;
     }
 

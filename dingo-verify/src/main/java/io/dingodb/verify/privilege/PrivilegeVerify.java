@@ -32,12 +32,7 @@ public abstract class PrivilegeVerify {
 
     static {
         privilegeVerifyMap.put(PrivilegeType.SQL, new DriverPrivilegeVerify());
-        privilegeVerifyMap.put(PrivilegeType.SDK, new SdkClientPrivilegeVerify());
         privilegeVerifyMap.put(PrivilegeType.API, new ApiPrivilegeVerify());
-    }
-
-    public static String getUserHost() {
-        return "";
     }
 
     public static boolean isVerify = true;
@@ -69,31 +64,13 @@ public abstract class PrivilegeVerify {
         return userDef;
     }
 
-    public abstract boolean verify(String user, String host, String schema, String table,
-                          String accessType, PrivilegeGather privilegeGather);
-
-    public abstract boolean apiVerify(String user, String host, CommonId schema, CommonId table,
+    public abstract boolean verify(String user, String host, CommonId schema, CommonId table,
                              String accessType, PrivilegeGather privilegeGather);
 
-    /**
-     * privilege verify.
-     * @param verifyType driver/sdk/api
-     * @return true/false
-     */
-    public static boolean verify(PrivilegeType verifyType, String user, String host, String schema, String table,
-                          String accessType, PrivilegeGather privilegeGather) {
-        if (isVerify) {
-            PrivilegeVerify privilegeVerify = privilegeVerifyMap.get(verifyType);
-            return privilegeVerify.verify(user, host, schema, table, accessType, privilegeGather);
-        } else {
-            return true;
-        }
-    }
-
-    public boolean apiVerify(PrivilegeType verifyType, String user, String host, CommonId schema, CommonId table,
+    public static boolean verify(PrivilegeType verifyType, String user, String host, CommonId schema, CommonId table,
                           String accessType, PrivilegeGather privilegeGather) {
         PrivilegeVerify privilegeVerify = privilegeVerifyMap.get(verifyType);
-        return privilegeVerify.apiVerify(user, host, schema, table, accessType, privilegeGather);
+        return privilegeVerify.verify(user, host, schema, table, accessType, privilegeGather);
     }
 
     public static PrivilegeVerify getPrivilegeVerify(PrivilegeType privilegeType) {

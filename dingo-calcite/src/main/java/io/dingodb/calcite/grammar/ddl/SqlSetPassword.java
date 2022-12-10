@@ -16,10 +16,14 @@
 
 package io.dingodb.calcite.grammar.ddl;
 
-import org.apache.calcite.sql.*;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlOperator;
+import org.apache.calcite.sql.SqlSetOption;
+import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -36,7 +40,7 @@ public class SqlSetPassword extends SqlSetOption {
     /**
      * Creates a SqlDdl.
      *
-     * @param pos
+     * @param pos pos
      */
     public SqlSetPassword(SqlParserPos pos, String user, String host, String password) {
         super(pos, "user", name, name);

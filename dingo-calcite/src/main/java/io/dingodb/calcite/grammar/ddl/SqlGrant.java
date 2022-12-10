@@ -49,7 +49,7 @@ public class SqlGrant extends SqlDdl {
     /**
      * Creates a SqlDdl.
      *
-     * @param pos
+     * @param pos pos
      */
     public SqlGrant(SqlParserPos pos, boolean isAllPrivilege, List<String> privilege, SqlIdentifier subject,
                              String user, String host) {
@@ -59,7 +59,7 @@ public class SqlGrant extends SqlDdl {
         this.schema = subject.names.get(0);
         this.table = subject.names.get(1);
         if (StringUtils.isBlank(table)) {
-           table = "*";
+            table = "*";
         }
         if (!"*".equals(table)) {
             List<String> nameList = new ArrayList<>();

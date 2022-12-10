@@ -24,14 +24,9 @@ import io.dingodb.common.privilege.TablePrivDefinition;
 import io.dingodb.common.privilege.UserDefinition;
 
 public class ApiPrivilegeVerify extends PrivilegeVerify {
-    @Override
-    public boolean verify(String user, String host, String schema, String table, String accessType,
-                          PrivilegeGather privilegeGather) {
-        return false;
-    }
 
     @Override
-    public boolean apiVerify(String user, String host, CommonId schema, CommonId table,
+    public boolean verify(String user, String host, CommonId schema, CommonId table,
                              String accessType, PrivilegeGather privilegeGather) {
         // Get index
         Integer index = PrivilegeDict.privilegeIndexDict.get(accessType);

@@ -76,7 +76,7 @@ public class TokenAuthService implements AuthService<Authentication> {
                 return Certificate.builder().code(200).build();
             }
             if (sysInfoService == null) {
-                sysInfoService = (SysInfoService) SysInfoServiceProvider.getRoot();
+                sysInfoService = SysInfoServiceProvider.getRoot();
             }
             String token = authentication.getToken();
             Map<String, Object> clientInfo = verifyToken(token);
@@ -87,10 +87,18 @@ public class TokenAuthService implements AuthService<Authentication> {
             DingoRole clientRole = authentication.getRole();
             DingoRole role = Domain.role;
             if (clientRole == DingoRole.SDK_CLIENT && role == DingoRole.EXECUTOR) {
-                String user = (String) clientInfo.getOrDefault("user", "");
-                PrivilegeGather privilegeGather = Domain.INSTANCE.privilegeGatherMap.computeIfAbsent(user,
-                    k -> sysInfoService.getPrivilegeDef(null, user));
-                certificate.setPrivilegeGather(privilegeGather);
+                String host = (String) clientInfo.get("host");
+                String user = (String) clientInfo.get("user");
+                if (host == null || host == null) {
+                    log.error("sdk to executor token auth fail");
+                }
+
+                Domain.INSTANCE.privilegeGatherMap
+                    .computeIfAbsent(user + "#" + host,
+                    k -> sysInfoService.getPrivilegeDef(null, user, host));
+                log.info("sdk to executor token auth success: user:" + user + ", host:" + host + ", privileges:"
+                    + Domain.INSTANCE.privilegeGatherMap);
+                //certificate.setPrivilegeGather(privilegeGather);
             }
 
             return certificate;

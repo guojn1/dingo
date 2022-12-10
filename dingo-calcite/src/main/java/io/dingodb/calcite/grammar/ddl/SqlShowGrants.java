@@ -34,7 +34,7 @@ public class SqlShowGrants extends SqlShow {
     /**
      * Creates a SqlDdl.
      *
-     * @param pos
+     * @param pos pos
      */
     public SqlShowGrants(SqlParserPos pos, String user, String host) {
         super(OPERATOR, pos);

@@ -25,6 +25,8 @@ import io.dingodb.calcite.grammar.ddl.SqlRevoke;
 import io.dingodb.calcite.grammar.ddl.SqlSetPassword;
 import io.dingodb.calcite.grammar.ddl.SqlShowGrants;
 import io.dingodb.calcite.grammar.ddl.SqlTruncate;
+import io.dingodb.common.CommonId;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.common.partition.PartitionDetailDefinition;
 import io.dingodb.common.partition.PartitionDefinition;
 import io.dingodb.common.privilege.PrivilegeDefinition;
@@ -259,6 +261,10 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
                 RESOURCE.tableNotFound(drop.name.toString())
             );
         }
+        Domain.INSTANCE.tableIdMap.computeIfPresent(schema.metaService.id(), (k, v) -> {
+            v.remove(tableName);
+            return v;
+        });
     }
 
     public void execute(@NonNull SqlTruncate truncate, CalcitePrepare.Context context) {
@@ -364,7 +370,6 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
 
     public void execute(@NonNull SqlShowGrants dingoSqlShowGrants, CalcitePrepare.Context context) {
 
-        //DingoSqlGrant sqlGrant = new DingoSqlGrant();
     }
 
     public SqlGrant getUserGrant(@NonNull SqlShowGrants dingoSqlShowGrants, List<UserDefinition> userDefinitions) {
@@ -395,75 +400,6 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
         }
         return null;
     }
-
-    public List<SqlGrant> getSchemaGrant(@NonNull SqlShowGrants dingoSqlShowGrants,
-                                        List<SchemaPrivDefinition> schemaPrivDefinitions) {
-        List<SqlGrant> sqlGrants = new ArrayList<>();
-        for (SchemaPrivDefinition schemaPrivDefinition : schemaPrivDefinitions) {
-            List<Boolean> schemaPrivileges = Arrays.asList(schemaPrivDefinition.getPrivileges());
-            long count = schemaPrivileges.stream()
-                .filter(isPrivilege -> isPrivilege).count();
-
-            if (count > 0) {
-                boolean isAllPrivilege = false;
-                List<String> privileges = null;
-                if (count == PrivilegeList.privilegeMap.get(PrivilegeType.SCHEMA).size()) {
-                    isAllPrivilege = true;
-                } else {
-                    List<Integer> indexs = new ArrayList<>();
-                    Stream.iterate(0, i -> i + 1).limit(schemaPrivileges.size()).forEach(i -> {
-                        if (schemaPrivileges.get(i)) {
-                            indexs.add(i);
-                        }
-                    });
-                    privileges = PrivilegeDict.getPrivilege(indexs);
-                }
-                SqlIdentifier subject = new SqlIdentifier(Arrays.asList(schemaPrivDefinition.getSchema(), "*"),
-                    null, null,
-                    new ArrayList<SqlParserPos>());
-                SqlGrant sqlGrant = new SqlGrant(null, isAllPrivilege, privileges, subject,
-                    dingoSqlShowGrants.user, dingoSqlShowGrants.host);
-                log.info("schema sqlGrant:" + sqlGrant.toString());
-                sqlGrants.add(sqlGrant);
-            }
-        }
-        return sqlGrants;
-    }
-
-    public List<SqlGrant> getTableGrant(@NonNull SqlShowGrants dingoSqlShowGrants,
-                                       List<TablePrivDefinition> tablePrivDefinitions) {
-        List<SqlGrant> sqlGrants = new ArrayList<>();
-        for (TablePrivDefinition tablePrivDefinition : tablePrivDefinitions) {
-            List<Boolean> userPrivileges = Arrays.asList(tablePrivDefinition.getPrivileges());
-            long count = userPrivileges.stream()
-                .filter(isPrivilege -> isPrivilege).count();
-
-            if (count > 0) {
-                boolean isAllPrivilege = false;
-                List<String> privileges = null;
-                if (count == PrivilegeList.privilegeMap.get(PrivilegeType.USER).size()) {
-                    isAllPrivilege = true;
-                } else {
-                    List<Integer> indexs = new ArrayList<>();
-                    Stream.iterate(0, i -> i + 1).limit(userPrivileges.size()).forEach(i -> {
-                        if (userPrivileges.get(i)) {
-                            indexs.add(i);
-                        }
-                    });
-                    privileges = PrivilegeDict.getPrivilege(indexs);
-                }
-                SqlIdentifier subject = new SqlIdentifier(Arrays.asList(tablePrivDefinition.getSchema(),
-                    tablePrivDefinition.getTable()), null, null,
-                    new ArrayList<SqlParserPos>());
-                SqlGrant sqlGrant = new SqlGrant(null, isAllPrivilege, privileges, subject,
-                    dingoSqlShowGrants.user, dingoSqlShowGrants.host);
-                log.info("table sqlGrant:" + sqlGrant.toString());
-                sqlGrants.add(sqlGrant);
-            }
-        }
-        return sqlGrants;
-    }
-
 
     public void validatePartitionBy(
         @NonNull List<String> keyList,
@@ -504,6 +440,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
     private PrivilegeDefinition getPrivilegeDefinition(@NonNull SqlGrant sqlGrant) {
         String table = sqlGrant.table;
         String schema = sqlGrant.schema;
+        CommonId schemaId = null;
         PrivilegeDefinition privilegeDefinition = null;
         PrivilegeType privilegeType = null;
         if ("*".equals(table) && "*".equals(schema)) {
@@ -511,14 +448,17 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
                 .build();
             privilegeType = PrivilegeType.USER;
         } else if ("*".equals(table)) {
+            schemaId = sysInfoService.getSchemaIdByCache(schema);
             privilegeDefinition = SchemaPrivDefinition.builder()
-                .schema(schema)
+                .schema(schemaId)
                 .build();
             privilegeType = PrivilegeType.SCHEMA;
         } else {
+            schemaId = sysInfoService.getSchemaIdByCache(schema);
+            CommonId tableId = sysInfoService.getTableIdByCache(schemaId, table);
             privilegeDefinition = TablePrivDefinition.builder()
-                .schema(schema)
-                .table(table)
+                .schema(schemaId)
+                .table(tableId)
                 .build();
             privilegeType = PrivilegeType.TABLE;
         }

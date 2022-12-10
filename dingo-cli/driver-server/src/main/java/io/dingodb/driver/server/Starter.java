@@ -25,7 +25,11 @@ import io.dingodb.common.domain.Domain;
 import io.dingodb.common.privilege.PrivilegeDict;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.exec.Services;
-import io.dingodb.net.*;
+import io.dingodb.net.Channel;
+import io.dingodb.net.Message;
+import io.dingodb.net.MessageListener;
+import io.dingodb.net.NetService;
+import io.dingodb.net.NetServiceProvider;
 import io.dingodb.server.client.connector.impl.CoordinatorConnector;
 import io.dingodb.server.driver.DriverProxyServer;
 import io.dingodb.server.protocol.Tags;
@@ -89,7 +93,7 @@ public class Starter {
         channel.send(new Message(Tags.LISTEN_REGISTRY_FLUSH, "registry flush channel".getBytes()));
     }
 
-    public MessageListener flush () {
+    public MessageListener flush() {
         return (message, ch) -> {
             if (message.tag().equals(Tags.LISTEN_RELOAD_PRIVILEGES)) {
                 PrivilegeGather privilegeGather = ProtostuffCodec.read(message.content());

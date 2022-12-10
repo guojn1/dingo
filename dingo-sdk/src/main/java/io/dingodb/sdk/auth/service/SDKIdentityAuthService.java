@@ -75,4 +75,5 @@ public class SDKIdentityAuthService implements AuthService<Authentication> {
             return "";
         }
     }
+
 }

@@ -16,8 +16,10 @@
 
 package io.dingodb.meta;
 
+import io.dingodb.common.CommonId;
 import io.dingodb.common.Location;
 import io.dingodb.common.annotation.ApiDeclaration;
+import io.dingodb.common.domain.Domain;
 import io.dingodb.common.privilege.PrivilegeDefinition;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.privilege.UserDefinition;
@@ -26,6 +28,8 @@ import io.dingodb.net.Message;
 import io.dingodb.net.NetService;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public interface SysInfoService {
 
@@ -48,10 +52,30 @@ public interface SysInfoService {
     void revoke(PrivilegeDefinition privilegeDefinition);
 
     @ApiDeclaration
-    PrivilegeGather getPrivilegeDef(Channel channel, String user);
+    PrivilegeGather getPrivilegeDef(Channel channel, String user, String host);
 
     @ApiDeclaration
     List<UserDefinition> getUserDefinition(String user);
+
+    @ApiDeclaration
+    public CommonId getSchemaId(String schema);
+
+    default CommonId getSchemaIdByCache(String schema) {
+        return Domain.INSTANCE.schemaIdMap.computeIfAbsent(schema, k -> {
+            return getSchemaId(schema);
+        });
+    }
+
+    @ApiDeclaration
+    public CommonId getTableId(CommonId schemaId, String table);
+
+    default CommonId getTableIdByCache(CommonId schemaId, String table) {
+        return Domain.INSTANCE.tableIdMap.computeIfAbsent(schemaId, k -> {
+            Map<String, CommonId> tableIdMapping = new ConcurrentHashMap<>();
+            tableIdMapping.put(table, getTableId(schemaId, table));
+            return tableIdMapping;
+        }).get(table);
+    }
 
     default void flushPrivileges() {
 
