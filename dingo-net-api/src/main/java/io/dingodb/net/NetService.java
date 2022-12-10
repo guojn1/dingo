@@ -102,4 +102,5 @@ public interface NetService extends AutoCloseable {
      * @return api registry instance
      */
     ApiRegistry apiRegistry();
+
 }

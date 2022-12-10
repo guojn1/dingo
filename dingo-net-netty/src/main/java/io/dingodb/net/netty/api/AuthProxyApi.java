@@ -26,27 +26,38 @@ import io.dingodb.net.service.AuthService;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.ServiceLoader;
 
 import static io.dingodb.net.Message.API_ERROR;
 
 public interface AuthProxyApi {
 
-    AuthProxyApi INSTANCE = new AuthProxyApi() {};
+    AuthProxyApi INSTANCE = new AuthProxyApi() {
+    };
 
     Iterable<AuthService.Provider> serviceProviders = ServiceLoader.load(AuthService.Provider.class);
 
     /**
      * Authentication, throw exception if failed.
+     *
      * @param certificate certificate
      */
     @ApiDeclaration(name = Constant.AUTH)
     default Map<String, Object[]> auth(Channel channel, Map<String, ?> certificate) {
+        AuthService service = null;
         try {
             Map<String, Object[]> result = new HashMap<>();
-            for (AuthService.Provider authServiceProvider : serviceProviders) {
-                AuthService service = authServiceProvider.get();
-                result.put(service.tag(), new Object[] {certificate, service.auth(certificate.get(service.tag()))});
+            try {
+                for (AuthService.Provider authServiceProvider : serviceProviders) {
+                    service = authServiceProvider.get();
+                    Object cert = certificate.get(service.tag());
+                    result.put(service.tag(), new Object[]{cert, service.auth(cert)});
+                }
+            } catch (Exception e) {
+                if (!(e instanceof NoSuchElementException)) {
+                    throw e;
+                }
             }
             return result;
         } catch (Exception e) {
