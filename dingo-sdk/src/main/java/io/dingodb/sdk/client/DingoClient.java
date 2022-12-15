@@ -417,6 +417,21 @@ public class DingoClient {
     }
 
     /**
+     * get table record by input key.
+     * @param tableName input table name
+     * @param key input key of the table
+     * @return record of the table in array of object, null if not found.
+     */
+    public Object[] getWithVerify(String tableName, Object[] key) {
+        List<Value> userKeys = new ArrayList<>();
+        for (Object keyValue: key) {
+            userKeys.add(Value.get(keyValue));
+        }
+        Key dingoKey = new Key(tableName, userKeys);
+        return storeOpUtils.get(tableName, dingoKey);
+    }
+
+    /**
      * get record from table by input key.
      * @param key input key of the table
      * @return record of table in Record mode, null if not found.
