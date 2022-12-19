@@ -71,7 +71,7 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
 
         metaMap.forEach((k, v) -> privilegeMap.computeIfAbsent(v.getSubjectId(), p -> new ArrayList<>()).add(v));
 
-        NetService.getDefault().registerTagMessageListener(Tags.LISTEN_REGISTRY_FLUSH, this::registryFlushChannel);
+        NetService.getDefault().registerTagMessageListener(Tags.LISTEN_REGISTRY_RELOAD, this::registryReloadChannel);
         NetService.getDefault().registerTagMessageListener(Tags.LISTEN_RELOAD_PRIVILEGES, this::flushPrivileges);
     }
 
@@ -104,7 +104,7 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         privilegeMap.computeIfAbsent(privilege.getSubjectId(), k -> new ArrayList<>()).add(privilege);
     }
 
-    private void registryFlushChannel(Message message, Channel channel) {
+    private void registryReloadChannel(Message message, Channel channel) {
         if (!channels.contains(channel)) {
             channels.add(channel);
             List<String> privilege = getAllPrivilegeDict();
@@ -192,7 +192,9 @@ public class PrivilegeAdaptor extends BaseAdaptor<Privilege> {
         if (!flushPrivileges.contains(definition.key())) {
             flushPrivileges.add(definition.key());
         }
-        log.info("privilege map:" + privilegeMap);
+        if (log.isDebugEnabled()) {
+            log.debug("privilege map:" + privilegeMap);
+        }
     }
 
     public List<UserDefinition> userDefinitions(List<User> users) {

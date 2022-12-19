@@ -49,10 +49,10 @@ public class DingoExampleUsingJdbc {
         String inputConnect = args[0];
         String command = args[1];
         String tableName = args[2];
-        String root = "root";
+        String user = "root";
         String password = "123123";
         if ("create".equalsIgnoreCase(command)) {
-            root = args[3];
+            user = args[3];
             password = args[4];
         }
         Statement statement = null;
@@ -63,7 +63,7 @@ public class DingoExampleUsingJdbc {
         try {
             Class.forName("io.dingodb.driver.client.DingoDriverClient");
             connection = DriverManager.getConnection(DingoDriverClient.CONNECT_STRING_PREFIX + connectUrl,
-                root, password);
+                user, password);
             statement = connection.createStatement();
         } catch (ClassNotFoundException ex) {
             log.error("Init driver catch ClassNotFoundExeption:{}", ex.toString(), ex);

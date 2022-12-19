@@ -47,9 +47,10 @@ import java.util.Map;
 import static io.dingodb.server.coordinator.meta.adaptor.MetaAdaptorRegistry.getMetaAdaptor;
 
 @Slf4j
-public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceApi {
-    public SysInfoServiceApi() {
-        ApiRegistry.getDefault().register(io.dingodb.server.api.SysInfoServiceApi.class, this);
+public class UserServiceApi implements io.dingodb.server.api.UserServiceApi {
+
+    public UserServiceApi() {
+        ApiRegistry.getDefault().register(io.dingodb.server.api.UserServiceApi.class, this);
     }
 
     public boolean existsUser(UserDefinition userDefinition) {
@@ -128,8 +129,8 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
     }
 
     @Override
-    public List<UserDefinition> getUserDefinition(String user) {
-        return ((UserAdaptor) getMetaAdaptor(User.class)).getUserDefinition(user);
+    public UserDefinition getUserDefinition(String user, String host) {
+        return ((UserAdaptor) getMetaAdaptor(User.class)).getUserDefinition(user, host);
     }
 
     @Override
@@ -141,11 +142,6 @@ public class SysInfoServiceApi implements io.dingodb.server.api.SysInfoServiceAp
     public CommonId getTableId(CommonId schemaId, String table) {
         TableAdaptor tableAdaptor = getMetaAdaptor(Table.class);
         return tableAdaptor.getTableId(schemaId, table.toUpperCase());
-    }
-
-    @Override
-    public boolean verifyFollower(Authentication authentication) {
-        return true;
     }
 
     public void saveRootPrivilege(String userName, String host) {

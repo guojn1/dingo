@@ -75,6 +75,9 @@ public class UserAdaptor extends BaseAdaptor<User> {
     }
 
     private UserDefinition metaToDefinition(User user) {
+        if (user == null) {
+            return null;
+        }
         return UserDefinition.builder()
             .user(user.getUser())
             .host(user.getHost())
@@ -140,15 +143,8 @@ public class UserAdaptor extends BaseAdaptor<User> {
         return Optional.ofNullable(userMap.get(user + "#%")).orElseGet(() -> userMap.get(user + "#" + host));
     }
 
-    public List<UserDefinition> getUserDefinition(String user) {
-        List<UserDefinition> userDefinitions = new ArrayList<>();
-        userMap.forEach((k, v) -> {
-            if (k.startsWith(user)) {
-                userDefinitions.add(metaToDefinition(v));
-            }
-        });
-        log.info("userMap:" + userMap);
-        return userDefinitions;
+    public UserDefinition getUserDefinition(String user, String host) {
+        return metaToDefinition(getUser(user, host));
     }
 
     private User definitionToMeta(UserDefinition definition) {

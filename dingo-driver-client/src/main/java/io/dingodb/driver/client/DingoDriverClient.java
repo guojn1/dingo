@@ -18,7 +18,7 @@ package io.dingodb.driver.client;
 
 import io.dingodb.common.Location;
 import io.dingodb.common.auth.DingoRole;
-import io.dingodb.common.domain.Domain;
+import io.dingodb.common.environment.ExecutionEnvironment;
 import io.dingodb.driver.DingoServiceImpl;
 import io.dingodb.driver.api.MetaApi;
 import io.dingodb.net.api.ApiRegistry;
@@ -74,13 +74,13 @@ public class DingoDriverClient extends Driver {
 
     @Override
     public Connection connect(String url, Properties info) throws SQLException {
-        Domain.role = DingoRole.JDBC;
-        Domain domain = Domain.INSTANCE;
+        ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
+        env.setRole(DingoRole.JDBC);
         if ((props = this.parseURL(url, info)) == null) {
             throw new IllegalArgumentException("Bad url: " + url);
         } else {
             log.info("info:" + props);
-            domain.putAll(props);
+            env.putAll(props);
             return super.connect(url, info);
         }
     }
