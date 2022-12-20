@@ -46,7 +46,8 @@ public class RouteTable {
         String port = leaderAddress.split(":")[1];
         ExecutorApi executor = apiRegistry.proxy(
             ExecutorApi.class,
-            () -> new Location(hostName, Integer.valueOf(port)));
+            () -> new Location(hostName, Integer.valueOf(port)),
+            new ExecutorApi() {});
         return executor;
     }
 
