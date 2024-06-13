@@ -16,15 +16,17 @@
 
 package io.dingodb.calcite.schema;
 
+import com.google.common.collect.ImmutableList;
 import io.dingodb.calcite.DingoParserContext;
 import io.dingodb.calcite.DingoTable;
-import io.dingodb.calcite.operation.TxnImportDataOperation;
 import io.dingodb.calcite.operation.TxnInsertIndexOperation;
 import io.dingodb.calcite.runtime.DingoResource;
 import io.dingodb.codec.CodecService;
 import io.dingodb.codec.KeyValueCodec;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.environment.ExecutionEnvironment;
+import io.dingodb.common.infoschema.InfoCache;
+import io.dingodb.common.infoschema.InfoSchema;
 import io.dingodb.common.partition.PartitionDetailDefinition;
 import io.dingodb.common.partition.RangeDistribution;
 import io.dingodb.common.store.KeyValue;
@@ -59,15 +61,18 @@ import java.util.NavigableMap;
 import java.util.Properties;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static io.dingodb.common.util.NoBreakFunctions.wrap;
 
 @Slf4j
 public class DingoSchema extends AbstractSchema {
+    Map<String, Table> tableMap;
 
     DingoSchema(MetaService metaService, DingoParserContext context, List<String> parent) {
         super(metaService, context, parent);
+        this.tableMap = new ConcurrentHashMap<>();
     }
 
     public void createTables(@NonNull TableDefinition tableDefinition,
@@ -85,21 +90,21 @@ public class DingoSchema extends AbstractSchema {
 
     public void createIndex(@NonNull String tableName, @NonNull TableDefinition indexDefinition) {
         CommonId tableId = getTableId(tableName);
-        DingoTable table = (DingoTable) getTable(tableName);
+        DingoTable table = getTable(tableName);
         Table definition = table.getTable();
         metaService.createIndex(tableId, TableDefinition.builder().name(definition.name).build(), indexDefinition);
         recreateIndexData(tableName, indexDefinition.getName(), definition);
     }
 
     public void createDifferenceIndex(String tableName, String indexName, IndexTable indexTable) {
-        DingoTable table = (DingoTable) getTable(tableName);
+        DingoTable table = getTable(tableName);
         metaService.createDifferenceIndex(table.getTableId(), table.getIndexId(indexName), indexTable);
-        table = (DingoTable) getTable(tableName);
+        table = getTable(tableName);
         recreateIndexData(tableName, indexName, table.getTable());
     }
 
     public void dropIndex(@NonNull String tableName, @NonNull String index) {
-        DingoTable table = (DingoTable) getTable(tableName);
+        DingoTable table = getTable(tableName);
         CommonId indexId = table.getIndexTableDefinitions().stream()
             .filter(i -> i.name.equalsIgnoreCase(index.toUpperCase()))
             .findAny().orElseThrow(() -> DingoResource.DINGO_RESOURCE.unknownIndex(index).ex()).tableId;
@@ -263,4 +268,32 @@ public class DingoSchema extends AbstractSchema {
     public void addDistribution(String tableName, PartitionDetailDefinition partitionDetail) {
         metaService.addDistribution(tableName, partitionDetail);
     }
+
+//    @Override
+//    public synchronized CommonId getTableId(String tableName) {
+//        Table table = getTableByName(tableName);
+//        return table.getTableId();
+//    }
+//
+//    public Table getTableByName(String tableName) {
+//        tableName = tableName.toUpperCase();
+//        Table table = tableMap.get(tableName);
+//        if (table == null) {
+//            InfoSchema infoSchema = InfoCache.infoCache.getLatest();
+//            table = infoSchema.getTable(name(), tableName);
+//        }
+//        return table;
+//    }
+//
+//    @Override
+//    public synchronized DingoTable getTable(String name) {
+//        Table table = getTableByName(name);
+//        return new DingoTable(
+//            context,
+//            ImmutableList.<String>builder().addAll(names).add(name).build(),
+//            metaService.getTableStatistic(table.getTableId()),
+//            table
+//        );
+//    }
+
 }

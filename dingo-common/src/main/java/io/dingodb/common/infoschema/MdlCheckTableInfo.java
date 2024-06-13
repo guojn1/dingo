@@ -14,10 +14,21 @@
  * limitations under the License.
  */
 
-package io.dingodb.common.auth;
+package io.dingodb.common.infoschema;
 
-public enum DingoRole {
-    JDBC,
-    EXECUTOR,
-    SQLLINE
+import lombok.Data;
+
+import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+@Data
+public class MdlCheckTableInfo {
+    ReentrantReadWriteLock lock;
+    long newestVer;
+    Map<Long, Long> jobsVerMap;
+    Map<Long, String> jobsIdsMap;
+
+    public MdlCheckTableInfo() {
+        lock = new ReentrantReadWriteLock();
+    }
 }

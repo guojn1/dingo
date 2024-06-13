@@ -33,11 +33,15 @@ import org.apache.calcite.util.NameSet;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 public class DingoCalciteSchema extends CalciteSchema {
 
     public final AbstractSchema schema;
+
+    Map<String, CalciteSchema> schemaMap = new ConcurrentHashMap<>();
 
     @Builder
     public DingoCalciteSchema(
@@ -62,10 +66,10 @@ public class DingoCalciteSchema extends CalciteSchema {
     @Override
     protected @Nullable CalciteSchema getImplicitSubSchema(String schemaName, boolean caseSensitive) {
         String name = schemaName.toUpperCase();
-        return Optional.mapOrNull(
-            schema.getSubSchema(name),
-            $ -> builder().schema($).name(name).build()
-        );
+        return schemaMap.computeIfAbsent(name, nm-> Optional.mapOrNull(
+            schema.getSubSchema(nm),
+            $ -> builder().schema($).name(nm).build()
+        ));
     }
 
     @Override

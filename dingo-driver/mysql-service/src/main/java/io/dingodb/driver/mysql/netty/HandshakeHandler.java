@@ -259,8 +259,6 @@ public class HandshakeHandler extends SimpleChannelInboundHandler<ByteBuf> {
         properties.setProperty("user", user);
         properties.setProperty("host", host);
         properties.setProperty("client", mysqlConnection.channel.remoteAddress().toString().substring(1));
-        ExecutionEnvironment env = ExecutionEnvironment.getExecutionEnvironment();
-        env.putAll(properties);
         java.sql.Connection connection;
         try {
             connection = DriverManager.getConnection("jdbc:dingo:", properties);

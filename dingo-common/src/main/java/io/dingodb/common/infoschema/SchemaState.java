@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-package io.dingodb.meta.entity;
+package io.dingodb.common.infoschema;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import io.dingodb.common.CommonId;
-import io.dingodb.common.type.TupleMapping;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.ToString;
-import lombok.experimental.SuperBuilder;
 
-@Getter
-@ToString
-@SuperBuilder
-public class IndexTable extends Table {
-    @JsonProperty
-    public final IndexType indexType;
-    @JsonProperty
-    public final boolean unique;
-    public final CommonId primaryId;
-    public final TupleMapping mapping;
+public enum SchemaState {
+    StateNone(0),
+    StateDeleteOnly(1),
+    StateWriteOnly(2),
+    StateWriteReorganization(3),
+    StateDeleteReorganization(4),
+    StatePublic(5),
+    StateReplicaOnly(6),
+    StateGlobalTxnOnly(7);
+
+    @Getter
+    private int code;
+    SchemaState(int code) {
+        this.code = code;
+    }
+
 }

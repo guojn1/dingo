@@ -17,6 +17,7 @@
 package io.dingodb.calcite;
 
 import com.google.common.collect.ImmutableList;
+import io.dingodb.calcite.grammar.ddl.DingoSqlCreateTable;
 import io.dingodb.calcite.grammar.ddl.SqlAnalyze;
 import io.dingodb.calcite.grammar.ddl.SqlBeginTx;
 import io.dingodb.calcite.grammar.ddl.SqlCall;
@@ -203,6 +204,9 @@ public class DingoParser {
         SqlNode sqlNode = parser.parseQuery();
         SqlLogUtils.info("Input Query: {}", SqlUtil.checkSql(sqlNode, sql));
         LogUtils.trace(log, "==DINGO==>:[Parsed Query]: {}", sqlNode.toString());
+        if (sqlNode instanceof DingoSqlCreateTable) {
+            ((DingoSqlCreateTable) sqlNode).setOriginalCreateSql(sql);
+        }
         return sqlNode;
     }
 

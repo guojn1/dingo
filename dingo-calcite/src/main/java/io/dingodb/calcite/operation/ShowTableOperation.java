@@ -27,10 +27,10 @@ import java.util.Iterator;
 import java.util.List;
 
 public class ShowTableOperation extends QueryOperation {
-    private String schemaName;
+    private final String schemaName;
     Connection connection;
 
-    private String sqlLikePattern;
+    private final String sqlLikePattern;
 
     public ShowTableOperation(String schemaName, Connection connection, String pattern) {
         this.schemaName = schemaName;
@@ -39,7 +39,7 @@ public class ShowTableOperation extends QueryOperation {
     }
 
     @Override
-    public Iterator getIterator() {
+    public Iterator<Object[]> getIterator() {
         try {
             List<Object[]> tables = new ArrayList<>();
             ResultSet rs = connection.getMetaData().getTables(null, schemaName.toUpperCase(),

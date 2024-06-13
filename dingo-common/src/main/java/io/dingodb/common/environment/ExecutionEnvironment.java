@@ -18,6 +18,7 @@ package io.dingodb.common.environment;
 
 import io.dingodb.common.CommonId;
 import io.dingodb.common.auth.DingoRole;
+import io.dingodb.common.infoschema.MdlCheckTableInfo;
 import io.dingodb.common.privilege.PrivilegeGather;
 import io.dingodb.common.store.KeyValue;
 import lombok.Getter;
@@ -28,6 +29,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ExecutionEnvironment {
@@ -36,7 +39,7 @@ public class ExecutionEnvironment {
         return INSTANCE;
     }
 
-    public static ExecutionEnvironment INSTANCE = new ExecutionEnvironment();
+    private static final ExecutionEnvironment INSTANCE = new ExecutionEnvironment();
 
     public static Map<String, Connection> connectionMap = new ConcurrentHashMap<>();
 
@@ -46,19 +49,18 @@ public class ExecutionEnvironment {
     @Setter
     private DingoRole role;
 
-    public Properties properties = new Properties();
+    private final Properties properties = new Properties();
 
     @Setter
     @Getter
     private volatile Map<String, PrivilegeGather> privilegeGatherMap = new ConcurrentHashMap<>();
 
-    @Setter
     @Getter
-    public volatile Map<String, CommonId> schemaIdMap = new ConcurrentHashMap<>();
+    private MdlCheckTableInfo mdlCheckTableInfo;
 
-    @Setter
-    @Getter
-    private volatile Map<CommonId, Map<String, CommonId>> tableIdMap = new ConcurrentHashMap<>();
+    public ExecutionEnvironment() {
+        mdlCheckTableInfo = new MdlCheckTableInfo();
+    }
 
     public boolean containsKey(String key) {
         return properties.containsKey(key);
@@ -107,4 +109,5 @@ public class ExecutionEnvironment {
     public void putAll(Properties properties) {
         this.properties.putAll(properties);
     }
+
 }

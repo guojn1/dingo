@@ -82,7 +82,7 @@ public class ServerMeta implements Meta {
         return MetaResultSet.count(connectionId, resultSet.statementId, resultSet.updateCount);
     }
 
-    private @NonNull Meta getConnectionMeta(@NonNull ConnectionHandle ch) {
+    private static @NonNull Meta getConnectionMeta(@NonNull ConnectionHandle ch) {
         DingoConnection connection = (DingoConnection) ExecutionEnvironment.connectionMap.get(ch.id);
         return connection.getMeta();
     }

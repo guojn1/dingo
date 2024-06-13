@@ -14,10 +14,22 @@
  * limitations under the License.
  */
 
-package io.dingodb.common.auth;
+package io.dingodb.common.infoschema;
 
-public enum DingoRole {
-    JDBC,
-    EXECUTOR,
-    SQLLINE
+import io.dingodb.meta.entity.Table;
+import lombok.Data;
+
+import java.util.Map;
+
+@Data
+public class InfoSchema {
+    private long schemaMetaVersion;
+
+    private Map<String, SchemaInfo> schemaMap;
+
+    public Table getTable(String schemaName, String tableName) {
+        SchemaInfo si = schemaMap.get(schemaName);
+        return si.getTableMap().get(tableName);
+    }
+
 }

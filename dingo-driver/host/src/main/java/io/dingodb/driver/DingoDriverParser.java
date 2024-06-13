@@ -34,8 +34,8 @@ import io.dingodb.calcite.operation.ShowProcessListOperation;
 import io.dingodb.calcite.rel.AutoIncrementShuttle;
 import io.dingodb.calcite.rel.DingoBasicCall;
 import io.dingodb.calcite.rel.DingoVector;
+import io.dingodb.calcite.schema.DingoCalciteSchema;
 import io.dingodb.calcite.type.converter.DefinitionMapper;
-import io.dingodb.calcite.utils.RelNodeCache;
 import io.dingodb.calcite.utils.SqlUtil;
 import io.dingodb.calcite.visitor.DingoJobVisitor;
 import io.dingodb.common.CommonId;
@@ -258,9 +258,6 @@ public final class DingoDriverParser extends DingoParser {
         SqlNode sqlNode;
         try {
             sqlNode = parse(sql);
-            if (sqlNode instanceof DingoSqlCreateTable) {
-                ((DingoSqlCreateTable) sqlNode).setOriginalCreateSql(sql);
-            }
         } catch (SqlParseException e) {
             throw ExceptionUtils.toRuntime(e);
         }
@@ -446,71 +443,71 @@ public final class DingoDriverParser extends DingoParser {
     private MysqlSignature getMysqlSignature(String sql,
             SqlNode sqlNode,
             JavaTypeFactory typeFactory, Meta.CursorFactory cursorFactory) {
-        if (compatibleMysql(sqlNode, planProfile)) {
-            planProfile.end();
-            DingoDdlVerify.verify(sqlNode, connection);
-            Operation operation = convertToOperation(sqlNode, connection, connection.getContext());
-            Meta.StatementType statementType;
-            List<ColumnMetaData> columns = new ArrayList<>();
-            if (sqlNode.getKind() == SqlKind.SELECT || sqlNode.getKind() == SqlKind.ORDER_BY) {
-                this.execProfile = new ExecProfile("exec");
-                QueryOperation queryOperation = (QueryOperation) operation;
-                queryOperation.initExecProfile(execProfile);
-                columns = queryOperation.columns().stream().map(column -> metaData(typeFactory, 0, column,
-                    new BasicSqlType(RelDataTypeSystem.DEFAULT, SqlTypeName.CHAR), null))
-                    .collect(Collectors.toList());
-                statementType = Meta.StatementType.SELECT;
-                if (queryOperation instanceof ShowProcessListOperation) {
-                    ShowProcessListOperation processListOperation = (ShowProcessListOperation) queryOperation;
-                    processListOperation.init(getProcessInfoList(ExecutionEnvironment.connectionMap));
-                }
-            } else if (sqlNode.getKind() == SqlKind.INSERT) {
-                columns = ((DmlOperation)operation).columns(typeFactory);
-                statementType = Meta.StatementType.IS_DML;
-                this.execProfile = new ExecProfile("dml");
-                ((DmlOperation) operation).doExecute(execProfile);
-            } else {
-                if (operation instanceof KillConnection) {
-                    KillConnection killConnection = (KillConnection) operation;
-                    String threadId = killConnection.getThreadId();
-                    if (ExecutionEnvironment.connectionMap.containsKey(threadId)) {
-                        killConnection.initConnection(ExecutionEnvironment.connectionMap.get(threadId));
-                    } else if (ExecutionEnvironment.connectionMap.containsKey(killConnection.getMysqlThreadId())) {
-                        killConnection.initConnection(
-                            ExecutionEnvironment.connectionMap.get(killConnection.getMysqlThreadId())
-                        );
-                    }
-                } else if (operation instanceof KillQuery) {
-                    KillQuery killQuery = (KillQuery) operation;
-                    killQuery.init(ExecutionEnvironment.connectionMap);
-                }
-                if (sqlNode instanceof SqlCommit) {
-                    if (connection.getTransaction() != null) {
-                        dingoAudit(connection.getTransaction());
-                    }
-                    ((DdlOperation)operation).execute();
-                    this.commitProfile = connection.getCommitProfile();
-                }  else if (sqlNode instanceof SqlRollback) {
-                    if (connection.getTransaction() != null) {
-                        dingoAudit(connection.getTransaction());
-                    }
-                    this.execProfile = new ExecProfile("other_ddl");
-                    ((DdlOperation)operation).doExecute(this.execProfile);
-                }else {
-                    this.execProfile = new ExecProfile("other_ddl");
-                    ((DdlOperation)operation).doExecute(this.execProfile);
-                }
-                statementType = Meta.StatementType.OTHER_DDL;
-            }
-            return new MysqlSignature(columns,
-                sql,
-                new ArrayList<>(),
-                null,
-                cursorFactory,
-                statementType,
-                operation);
+        if (!compatibleMysql(sqlNode, planProfile)) {
+            return null;
         }
-        return null;
+        planProfile.end();
+        DingoDdlVerify.verify(sqlNode, connection);
+        Operation operation = convertToOperation(sqlNode, connection, connection.getContext());
+        Meta.StatementType statementType;
+        List<ColumnMetaData> columns = new ArrayList<>();
+        if (sqlNode.getKind() == SqlKind.SELECT || sqlNode.getKind() == SqlKind.ORDER_BY) {
+            this.execProfile = new ExecProfile("exec");
+            QueryOperation queryOperation = (QueryOperation) operation;
+            queryOperation.initExecProfile(execProfile);
+            columns = queryOperation.columns().stream().map(column -> metaData(typeFactory, 0, column,
+                    new BasicSqlType(RelDataTypeSystem.DEFAULT, SqlTypeName.CHAR), null))
+                .collect(Collectors.toList());
+            statementType = Meta.StatementType.SELECT;
+            if (queryOperation instanceof ShowProcessListOperation) {
+                ShowProcessListOperation processListOperation = (ShowProcessListOperation) queryOperation;
+                processListOperation.init(getProcessInfoList(ExecutionEnvironment.connectionMap));
+            }
+        } else if (sqlNode.getKind() == SqlKind.INSERT) {
+            columns = ((DmlOperation)operation).columns(typeFactory);
+            statementType = Meta.StatementType.IS_DML;
+            this.execProfile = new ExecProfile("dml");
+            ((DmlOperation) operation).doExecute(execProfile);
+        } else {
+            if (operation instanceof KillConnection) {
+                KillConnection killConnection = (KillConnection) operation;
+                String threadId = killConnection.getThreadId();
+                if (ExecutionEnvironment.connectionMap.containsKey(threadId)) {
+                    killConnection.initConnection(ExecutionEnvironment.connectionMap.get(threadId));
+                } else if (ExecutionEnvironment.connectionMap.containsKey(killConnection.getMysqlThreadId())) {
+                    killConnection.initConnection(
+                        ExecutionEnvironment.connectionMap.get(killConnection.getMysqlThreadId())
+                    );
+                }
+            } else if (operation instanceof KillQuery) {
+                KillQuery killQuery = (KillQuery) operation;
+                killQuery.init(ExecutionEnvironment.connectionMap);
+            }
+            if (sqlNode instanceof SqlCommit) {
+                if (connection.getTransaction() != null) {
+                    dingoAudit(connection.getTransaction());
+                }
+                ((DdlOperation)operation).execute();
+                this.commitProfile = connection.getCommitProfile();
+            }  else if (sqlNode instanceof SqlRollback) {
+                if (connection.getTransaction() != null) {
+                    dingoAudit(connection.getTransaction());
+                }
+                this.execProfile = new ExecProfile("other_ddl");
+                ((DdlOperation)operation).doExecute(this.execProfile);
+            } else {
+                this.execProfile = new ExecProfile("other_ddl");
+                ((DdlOperation)operation).doExecute(this.execProfile);
+            }
+            statementType = Meta.StatementType.OTHER_DDL;
+        }
+        return new MysqlSignature(columns,
+            sql,
+            new ArrayList<>(),
+            null,
+            cursorFactory,
+            statementType,
+            operation);
     }
 
     private void dingoAudit(ITransaction transaction) {
@@ -559,7 +556,7 @@ public final class DingoDriverParser extends DingoParser {
                 lockFuture.cancel(true);
                 unlockFuture.complete(null);
                 unlockFuture.join();
-                throw new RuntimeException(String.format("Lock wait timeout exceeded. tableId: %s.", lock.tableId.toString()));
+                throw new RuntimeException(String.format("Lock wait timeout exceeded. tableId: %s.", lock.tableId));
             }
             try {
                 lockFuture.get(nextTtl, TimeUnit.SECONDS);
@@ -569,7 +566,7 @@ public final class DingoDriverParser extends DingoParser {
                 lockFuture.cancel(true);
                 unlockFuture.complete(null);
                 unlockFuture.join();
-                throw new RuntimeException(String.format("Lock wait timeout exceeded. tableId: %s.", lock.tableId.toString()));
+                throw new RuntimeException(String.format("Lock wait timeout exceeded. tableId: %s.", lock.tableId));
             } catch (Exception e) {
                 LogUtils.error(log, e.getMessage(), e);
                 lockFuture.cancel(true);

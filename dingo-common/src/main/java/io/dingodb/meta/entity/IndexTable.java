@@ -14,10 +14,23 @@
  * limitations under the License.
  */
 
-package io.dingodb.common.auth;
+package io.dingodb.meta.entity;
 
-public enum DingoRole {
-    JDBC,
-    EXECUTOR,
-    SQLLINE
+import com.fasterxml.jackson.annotation.JsonProperty;
+import io.dingodb.common.CommonId;
+import io.dingodb.common.type.TupleMapping;
+import lombok.Getter;
+import lombok.ToString;
+import lombok.experimental.SuperBuilder;
+
+@Getter
+@ToString
+@SuperBuilder
+public class IndexTable extends Table {
+    @JsonProperty
+    public final IndexType indexType;
+    @JsonProperty
+    public final boolean unique;
+    public final CommonId primaryId;
+    public final TupleMapping mapping;
 }

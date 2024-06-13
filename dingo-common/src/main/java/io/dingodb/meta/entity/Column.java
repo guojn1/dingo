@@ -20,7 +20,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dingodb.common.table.ColumnDefinition;
 import io.dingodb.common.type.DingoType;
 import io.dingodb.common.type.NullableType;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;

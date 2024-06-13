@@ -39,7 +39,6 @@ import io.dingodb.calcite.grammar.ddl.SqlUseSchema;
 import io.dingodb.calcite.schema.DingoRootSchema;
 import io.dingodb.calcite.schema.DingoSchema;
 import io.dingodb.calcite.stats.StatsOperator;
-import io.dingodb.calcite.utils.RelNodeCache;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.metrics.DingoMetrics;
@@ -101,13 +100,11 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -824,7 +821,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
             = getSchemaAndTableName(sqlAlterAddColumn.table, context);
         final String tableName = Parameters.nonNull(schemaTableName.right, "table name");
         final DingoSchema schema = Parameters.nonNull(schemaTableName.left, "table schema");
-        DingoTable table = (DingoTable) schema.getTable(tableName);
+        DingoTable table = schema.getTable(tableName);
         Table definition = table.getTable();
         ColumnDefinition newColumn = fromSqlColumnDeclaration(
             (DingoSqlColumn) sqlAlterAddColumn.getColumnDeclaration(),
@@ -995,7 +992,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
             = getSchemaAndTableName(sqlAlterIndex.table, context);
         final String tableName = Parameters.nonNull(schemaTableName.right, "table name");
         final DingoSchema schema = Parameters.nonNull(schemaTableName.left, "table schema");
-        DingoTable table = (DingoTable) schema.getTable(tableName);
+        DingoTable table = schema.getTable(tableName);
         IndexTable indexTable = table.getIndexDefinition(sqlAlterIndex.getIndex());
         if (indexTable == null) {
             throw new RuntimeException("The index " + sqlAlterIndex.getIndex() + " not exist.");

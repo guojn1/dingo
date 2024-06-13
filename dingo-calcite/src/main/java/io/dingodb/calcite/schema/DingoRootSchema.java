@@ -21,26 +21,35 @@ import com.google.common.collect.ImmutableSet;
 import io.dingodb.calcite.DingoParserContext;
 import io.dingodb.calcite.DingoTable;
 import io.dingodb.common.CommonId;
+import io.dingodb.common.infoschema.InfoCache;
+import io.dingodb.common.infoschema.InfoSchema;
 import io.dingodb.common.util.Optional;
 import io.dingodb.meta.MetaService;
+import lombok.Getter;
 import org.apache.calcite.schema.SchemaVersion;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DingoRootSchema extends AbstractSchema {
     public static final String ROOT_SCHEMA_NAME = MetaService.ROOT_NAME;
-    //public static final String DEFAULT_SCHEMA_NAME = ROOT_SCHEMA_NAME;
     public static final String DEFAULT_SCHEMA_NAME = MetaService.DINGO_NAME;
 
     private static final MetaService ROOT_META_SERVICE = MetaService.root();
 
-    private Map<String, MetaService> metaServiceCache = new HashMap<>();
-    private Map<String, DingoSchema> cache = new HashMap<>();
+    private final Map<String, MetaService> metaServiceCache = new HashMap<>();
+    @Getter
+    private Map<String, DingoSchema> cache = new ConcurrentHashMap<>();
+
+    private Map<CommonId, InfoSchema> isMap;
+    private Map<Long, Long> relateTableMap;
 
     public DingoRootSchema(DingoParserContext context) {
         super(ROOT_META_SERVICE, context, ImmutableList.of(ROOT_SCHEMA_NAME));
+        isMap = new ConcurrentHashMap<>();
+        relateTableMap = new ConcurrentHashMap<>();
     }
 
     @Override
@@ -94,4 +103,14 @@ public class DingoRootSchema extends AbstractSchema {
     public DingoSchema snapshot(SchemaVersion version) {
         return new DingoSchema(ROOT_META_SERVICE, context, ImmutableList.of(ROOT_SCHEMA_NAME));
     }
+
+    public void initInfoSchemaByTxn(CommonId txnId) {
+        InfoSchema is = InfoCache.infoCache.getLatest();
+        isMap.put(txnId, is);
+    }
+
+    public void clearInfoSchemaByTxn(CommonId txnId) {
+        isMap.remove(txnId);
+    }
+
 }
