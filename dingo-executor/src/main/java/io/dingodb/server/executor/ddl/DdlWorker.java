@@ -20,12 +20,16 @@ import io.dingodb.common.CommonId;
 import io.dingodb.common.concurrent.Executors;
 import io.dingodb.common.ddl.ActionType;
 import io.dingodb.common.ddl.DdlJob;
+import io.dingodb.common.ddl.DdlUtil;
+import io.dingodb.common.ddl.JobRecord;
 import io.dingodb.common.ddl.JobState;
+import io.dingodb.common.ddl.MdlInfoRecord;
 import io.dingodb.common.ddl.ReorgInfo;
 import io.dingodb.common.ddl.SchemaDiff;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.meta.SchemaInfo;
 import io.dingodb.common.meta.SchemaState;
+import io.dingodb.common.metrics.DingoMetrics;
 import io.dingodb.common.mysql.scope.ScopeVariables;
 import io.dingodb.common.session.Session;
 import io.dingodb.common.table.TableDefinition;
@@ -112,14 +116,22 @@ public class DdlWorker {
             LogUtils.warn(log, "[ddl] job txn rollback done, jobId:{}", job.getId());
             schemaVer = 0;
         }
+        long start = System.currentTimeMillis();
         String error = registerMDLInfo(job, schemaVer);
+        long sub = System.currentTimeMillis() - start;
+        DingoMetrics.timer("registerMDLInfo").update(sub, TimeUnit.MILLISECONDS);
+        LogUtils.info(log, "registerMDLInfo done, jobId:{}", job.getId());
         if (error != null) {
             session.rollback();
             dc.getSv().unlockSchemaVersion(job.getId());
             LogUtils.warn(log, "[ddl] registerMdlInfo failed, reason:{}, jobId:{}", error, job.getId());
             return Pair.of(0L, error);
         }
+        start = System.currentTimeMillis();
         error = updateDDLJob(job, res.getValue() != null);
+        sub = System.currentTimeMillis() - start;
+        DingoMetrics.timer("updateDDLJob").update(sub, TimeUnit.MILLISECONDS);
+        LogUtils.info(log, "updateDDLJob done, jobId:{}", job.getId());
         if (error != null) {
             // session rollback
             session.rollback();
@@ -130,7 +142,11 @@ public class DdlWorker {
         }
         try {
             // session commit;
+            start = System.currentTimeMillis();
             session.commit();
+            sub = System.currentTimeMillis() - start;
+            DingoMetrics.timer("ddlJobCommit").update(sub, TimeUnit.MILLISECONDS);
+            LogUtils.info(log, "ddl job commit done, jobId:{}", job.getId());
         } catch (Exception e) {
             LogUtils.error(log, "[ddl] run and update ddl job commit error," + e.getMessage(), e);
         } finally {
@@ -152,10 +168,46 @@ public class DdlWorker {
         dc.getWc().getLock().writeLock().unlock();
     }
 
+    public String registerQueueMDLInfo(DdlJob job, long ver) {
+        long start = System.currentTimeMillis();
+        JobRecord jobRecord = InfoSchemaService.root().getJobRecord(job.getId());
+        long sub = System.currentTimeMillis() - start;
+        DingoMetrics.timer("registerMDLInfoGetJob").update(sub, TimeUnit.MILLISECONDS);
+        if (jobRecord == null) {
+            return "can't find ddl job " + job.getId();
+        }
+        String ids = jobRecord.getTableIds();
+        MdlInfoRecord mdlInfoRecord = InfoSchemaService.root().getMdlInfoRecord(job.getId());
+        try {
+            if (mdlInfoRecord == null) {
+                mdlInfoRecord = MdlInfoRecord.builder()
+                    .jobId(job.getId())
+                    .version(ver)
+                    .tableIds(ids)
+                    .build();
+                InfoSchemaService.root().insertMdlInfoRecord(mdlInfoRecord);
+                // insert
+            } else {
+                mdlInfoRecord.setVersion(ver);
+                mdlInfoRecord.setTableIds(ids);
+                InfoSchemaService.root().updateMdlInfoRecord(mdlInfoRecord);
+                // update
+            }
+            return null;
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return "upsert mdl info error";
+        }
+    }
+
     public String registerMDLInfo(DdlJob job, long ver) {
         if (ver == 0) {
             return null;
         }
+        if (DdlUtil.mdlInfoQueue) {
+            return registerQueueMDLInfo(job, ver);
+        }
+
         List<Object[]> rows;
         try {
             rows = this.session.executeQuery("select table_ids from mysql.dingo_ddl_job where job_id = " + job.getId());
@@ -169,7 +221,10 @@ public class DdlWorker {
         String ids = (String) rows.get(0)[0];
         boolean duplicate = false;
         try {
+            long start = System.currentTimeMillis();
             List<Object[]> res = session.executeQuery("select job_id from mysql.dingo_mdl_info where job_id=" + job.getId());
+            long sub = System.currentTimeMillis() - start;
+            DingoMetrics.timer("registerMDLInfoGetMdl").update(sub, TimeUnit.MILLISECONDS);
             if (!res.isEmpty()) {
                 duplicate = true;
             }
@@ -177,6 +232,7 @@ public class DdlWorker {
             LogUtils.error(log, e.getMessage(), e);
         }
         String sql;
+        long start = System.currentTimeMillis();
         if (duplicate) {
             sql = "update mysql.dingo_mdl_info set version=%d and table_ids=%s where job_id=%d";
             sql = String.format(sql, ver, Utils.quoteForSql(ids), job.getId());
@@ -184,13 +240,20 @@ public class DdlWorker {
             sql = "insert into mysql.dingo_mdl_info (job_id, version, table_ids) values (%d, %d, %s)";
             sql = String.format(sql, job.getId(), ver, Utils.quoteForSql(ids));
         }
-        return session.executeUpdate(sql);
+        String res = session.executeUpdate(sql);
+        long sub = System.currentTimeMillis() - start;
+        DingoMetrics.timer("registerMDLInfoUPDELMdl").update(sub, TimeUnit.MILLISECONDS);
+        return res;
     }
 
     public String updateDDLJob(DdlJob job, boolean error) {
         boolean updateRawArgs = needUpdateRawArgs(job, error);
 
-        return JobTableUtil.updateDDLJob2Table(session, job, updateRawArgs);
+        if (DdlUtil.jobQueue) {
+            return JobTableUtil.updateDDLJob2Queue(job, updateRawArgs);
+        } else {
+            return JobTableUtil.updateDDLJob2Table(session, job, updateRawArgs);
+        }
     }
 
     public static boolean needUpdateRawArgs(DdlJob job, boolean meetErr) {
@@ -877,7 +940,12 @@ public class DdlWorker {
     }
 
     public String finishDDLJob(DdlJob job) {
-        String error = JobTableUtil.deleteDDLJob(session, job);
+        String error;
+        if (DdlUtil.jobQueue) {
+            error = JobTableUtil.deleteDDLQueueJob(job);
+        } else {
+            error = JobTableUtil.deleteDDLJob(session, job);
+        }
         if (error != null) {
             return error;
         }

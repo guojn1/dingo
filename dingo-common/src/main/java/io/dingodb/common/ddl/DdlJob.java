@@ -135,6 +135,9 @@ public class DdlJob {
 
     public String job2UniqueIDs(boolean schema) {
         if (actionType == ActionType.ActionTruncateTable) {
+            if (args == null) {
+                decodeArgs();
+            }
             return tableId + "," + args.get(0);
         }
         if (schema) {

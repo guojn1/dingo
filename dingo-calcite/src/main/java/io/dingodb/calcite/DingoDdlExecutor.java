@@ -838,9 +838,9 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
         long end = System.currentTimeMillis();
         long cost = end - start;
         if (cost > 10000) {
-            LogUtils.info(log, "[ddl] create table take long time, schemaName:{} tableName:{}", schema.getSchemaName(), tableName);
+            LogUtils.info(log, "[ddl] create table take long time：{}ms, schemaName:{} tableName:{}", cost, schema.getSchemaName(), tableName);
         } else {
-            LogUtils.info(log, "[ddl] create table success, schemaName:{}, tableName:{}", schema.getSchemaName(), tableName);
+            LogUtils.info(log, "[ddl] create table success, cost:{}, schemaName:{}, tableName:{}", cost, schema.getSchemaName(), tableName);
         }
     }
 

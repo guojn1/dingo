@@ -64,7 +64,7 @@ public class SchemaSyncerService implements io.dingodb.meta.SchemaSyncerService 
         } else {
             path = String.format(DdlUtil.ALL_SCHEMA_VER_SYNC_NORMAL_TEMPLATE, tenantPrefix, DdlUtil.DDLAllSchemaVersions, DdlUtil.ddlId);
         }
-        LogUtils.info(log, "[ddl] updateSelfVersion info, path:{}, ver:{}", path, schemaVersion);
+        LogUtils.debug(log, "[ddl] updateSelfVersion info, path:{}, ver:{}", path, schemaVersion);
         lockPut(startTs, path, String.valueOf(schemaVersion), 3);
         LogUtils.info(log, "[ddl] updateSelfVersion info success, path:{}, ver:{}", path, schemaVersion);
     }
@@ -124,7 +124,7 @@ public class SchemaSyncerService implements io.dingodb.meta.SchemaSyncerService 
             }
             List<KeyValue> kvList = infoSchemaService.getByKey(path, pathEnd);
             if (kvList.isEmpty()) {
-                Utils.sleep(100);
+                Utils.sleep(50);
                 continue;
             }
             synced = true;
@@ -171,7 +171,7 @@ public class SchemaSyncerService implements io.dingodb.meta.SchemaSyncerService 
                 return null;
             }
 
-            Utils.sleep(100);
+            Utils.sleep(50);
         }
     }
 

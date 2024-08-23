@@ -23,6 +23,8 @@ import com.google.protobuf.CodedOutputStream;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.codec.CodecKvUtil;
 import io.dingodb.common.ddl.DdlJob;
+import io.dingodb.common.ddl.JobRecord;
+import io.dingodb.common.ddl.MdlInfoRecord;
 import io.dingodb.common.ddl.SchemaDiff;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.meta.SchemaInfo;
@@ -773,6 +775,82 @@ public class InfoSchemaService implements io.dingodb.meta.InfoSchemaService {
             ts,
             request
         ).getIds();
+    }
+
+    @Override
+    public void updateJobRecord(JobRecord jobRecord) {
+        byte[] val = getBytesFromObj(jobRecord);
+        txn.ddlHPut(mDDLJobKey, jobIdKey(jobRecord.getJobId()), val);
+    }
+
+    @Override
+    public List<JobRecord> getAllJobRecord() {
+        byte[] dataPrefix = CodecKvUtil.hashDataKeyPrefix(mDDLJobKey);
+        byte[] end = CodecKvUtil.hashDataKeyPrefixUpperBound(dataPrefix);
+        List<byte[]> res = txn.ddlHRange(dataPrefix, end);
+        if (res == null) {
+            return new ArrayList<>();
+        }
+        return res.stream().map(bytes -> (JobRecord)getObjFromBytes(bytes, JobRecord.class))
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public void insertJobRecord(JobRecord jobRecord) {
+        byte[] val = getBytesFromObj(jobRecord);
+        txn.ddlHPutAbsent(mDDLJobKey, jobIdKey(jobRecord.getJobId()), val);
+    }
+
+    @Override
+    public JobRecord getJobRecord(long jobId) {
+        byte[] bytes = txn.ddlHGet(mDDLJobKey, jobIdKey(jobId));
+        if (bytes == null) {
+            return null;
+        }
+        return (JobRecord) getObjFromBytes(bytes, JobRecord.class);
+    }
+
+    @Override
+    public void deleteJobRecord(long jobId) {
+        txn.ddlHDel(mDDLJobKey, jobIdKey(jobId));
+    }
+
+    @Override
+    public void updateMdlInfoRecord(MdlInfoRecord mdlInfoRecord) {
+        byte[] val = getBytesFromObj(mdlInfoRecord);
+        txn.ddlHPut(mMdlInfoKey, jobIdKey(mdlInfoRecord.getJobId()), val);
+    }
+
+    @Override
+    public List<MdlInfoRecord> getAllMdlInfoRecord() {
+        byte[] dataPrefix = CodecKvUtil.hashDataKeyPrefix(mMdlInfoKey);
+        byte[] end = CodecKvUtil.hashDataKeyPrefixUpperBound(dataPrefix);
+        List<byte[]> res = txn.ddlHRange(dataPrefix, end);
+        if (res == null) {
+            return new ArrayList<>();
+        }
+        return res.stream().map(bytes -> (MdlInfoRecord)getObjFromBytes(bytes, MdlInfoRecord.class))
+            .collect(Collectors.toList());
+    }
+
+    @Override
+    public void insertMdlInfoRecord(MdlInfoRecord mdlInfoRecord) {
+        byte[] val = getBytesFromObj(mdlInfoRecord);
+        txn.ddlHPutAbsent(mMdlInfoKey, jobIdKey(mdlInfoRecord.getJobId()), val);
+    }
+
+    @Override
+    public MdlInfoRecord getMdlInfoRecord(long jobId) {
+        byte[] bytes = txn.ddlHGet(mMdlInfoKey, jobIdKey(jobId));
+        if (bytes == null) {
+            return null;
+        }
+        return (MdlInfoRecord) getObjFromBytes(bytes, MdlInfoRecord.class);
+    }
+
+    @Override
+    public void deleteMdlInfoRecord(long jobId) {
+        txn.ddlHDel(mMdlInfoKey, jobIdKey(jobId));
     }
 
     private long genId(IdEpochType idEpochType) {

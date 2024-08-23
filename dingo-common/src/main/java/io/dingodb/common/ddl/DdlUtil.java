@@ -45,6 +45,9 @@ public final class DdlUtil {
     public static final String ADDING_DDL_JOB_CONCURRENT_KEY = String.format("%s:%s", tenantPrefix, ADDING_DDL_JOB_CONCURRENT);
 
     public static boolean mdlEnable = true;
+    public static boolean jobQueue = true;
+
+    public static boolean mdlInfoQueue = true;
 
     public static int errorCountLimit = 5;
 

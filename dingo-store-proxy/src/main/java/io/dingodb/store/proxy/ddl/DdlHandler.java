@@ -20,6 +20,7 @@ import io.dingodb.common.ddl.ActionType;
 import io.dingodb.common.ddl.DdlJob;
 import io.dingodb.common.ddl.DdlJobEventSource;
 import io.dingodb.common.ddl.DdlUtil;
+import io.dingodb.common.ddl.JobRecord;
 import io.dingodb.common.ddl.JobState;
 import io.dingodb.common.environment.ExecutionEnvironment;
 import io.dingodb.common.log.LogUtils;
@@ -31,7 +32,6 @@ import io.dingodb.common.table.TableDefinition;
 import io.dingodb.common.util.Pair;
 import io.dingodb.common.util.Utils;
 import io.dingodb.meta.InfoSchemaService;
-import io.dingodb.meta.entity.Column;
 import io.dingodb.meta.entity.Table;
 import io.dingodb.sdk.service.CoordinatorService;
 import io.dingodb.sdk.service.Services;
@@ -70,13 +70,40 @@ public final class DdlHandler {
             //List<DdlJob> jobList = new ArrayList<>();
             DdlJob ddlJob = Utils.forceTake(asyncJobQueue);
             try {
-                insertDDLJobs2Table(ddlJob, true);
+                if (DdlUtil.jobQueue) {
+                    insertDDLJobs2Queue(ddlJob, true);
+                } else {
+                    insertDDLJobs2Table(ddlJob, true);
+                }
             } catch (Exception e) {
                 LogUtils.error(log, "[ddl] insert ddl into table error", e);
             }
         }
         LogUtils.error(log, "[ddl] limitDdlJobs exit");
         limitDdlJobs();
+    }
+
+    public static void insertDDLJobs2Queue(DdlJob job, boolean updateRawArgs) {
+        if (job == null) {
+            return;
+        }
+        InfoSchemaService service = InfoSchemaService.root();
+        List<Long> ids = service.genGlobalIDs(1);
+        job.setId(ids.get(0));
+        long jobId = job.getId();
+        job.setState(JobState.jobStateQueueing);
+        job.encode(updateRawArgs);
+        JobRecord jobRecord = JobRecord.builder()
+            .schemaIds(job.job2SchemaIDs())
+            .tableIds(job.job2TableIDs())
+            .jobId(job.getId())
+            .reorg(job.mayNeedReorg())
+            .ddlJob(job)
+            .processing(0)
+            .type(job.getActionType().getCode())
+            .build();
+        InfoSchemaService.root().insertJobRecord(jobRecord);
+        asyncNotify(1, jobId);
     }
 
     public static void insertDDLJobs2Table(DdlJob job, boolean updateRawArgs) {

@@ -59,7 +59,6 @@ import java.util.stream.IntStream;
 
 @Slf4j
 public final class TransactionUtil {
-    public static final long lock_ttl = 60000L;
     public static final int max_pre_write_count = 1024;
     public static final long maxRpcDataSize = 56*1024*1024;
     public static final String snapshotIsolation = "REPEATABLE-READ";

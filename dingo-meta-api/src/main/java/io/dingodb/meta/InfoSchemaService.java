@@ -19,6 +19,8 @@ package io.dingodb.meta;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.ddl.DdlJob;
 import io.dingodb.common.ddl.DdlUtil;
+import io.dingodb.common.ddl.JobRecord;
+import io.dingodb.common.ddl.MdlInfoRecord;
 import io.dingodb.common.ddl.SchemaDiff;
 import io.dingodb.common.meta.SchemaInfo;
 import io.dingodb.common.mysql.MysqlByteUtil;
@@ -44,7 +46,10 @@ public interface InfoSchemaService {
     String mSchemaVersionKey = "SchemaVersionKey";
     String nextGlobalID = "NextGlobalID";
     byte[] mDDLJobHistoryKey = "DDLJobHistory".getBytes();
+    byte[] mDDLJobKey = "DDLJobUsed|0|".getBytes();
+    byte[] mDDLJobKeyEnd = "DDLJobUsed|1|".getBytes();
 
+    byte[] mMdlInfoKey = "DDLMDLInfo".getBytes();
     String mDdlTemplate = "%s:%s:%d";
 
     String mSchemaVerTemplate = "%s:%s";
@@ -240,5 +245,25 @@ public interface InfoSchemaService {
     boolean prepare();
 
     List<Long> genGlobalIDs(int n);
+
+    default void updateJobRecord(JobRecord jobRecord) {}
+
+    default List<JobRecord> getAllJobRecord() { return null; }
+
+    default JobRecord getJobRecord(long jobId) { return null; }
+
+    default void insertJobRecord(JobRecord jobRecord) {}
+
+    default void deleteJobRecord(long jobId) {}
+
+    default void updateMdlInfoRecord(MdlInfoRecord mdlInfoRecord) {}
+
+    default void deleteMdlInfoRecord(long jobId) {}
+
+    default List<MdlInfoRecord> getAllMdlInfoRecord() { return null; }
+
+    default void insertMdlInfoRecord(MdlInfoRecord mdlInfoRecord) {}
+
+    default MdlInfoRecord getMdlInfoRecord(long jobId) { return null; }
 
 }

@@ -25,6 +25,7 @@ import io.dingodb.common.ddl.ReorgBackFillTask;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.partition.RangeDistribution;
 import io.dingodb.common.store.KeyValue;
+import io.dingodb.common.txn.TxnUtil;
 import io.dingodb.common.type.DingoType;
 import io.dingodb.common.type.scalar.BooleanType;
 import io.dingodb.common.util.ByteArrayUtils;
@@ -88,8 +89,6 @@ public class IndexAddFiller implements BackFiller {
     byte[] primaryKey;
     long timeOut = 50000;
     Future<?> future;
-    public static final long preBatch = 1024;
-
     long ownerRegionId;
     Iterator<Object[]> tupleIterator;
     private static final DingoType dingoType = new BooleanType(true);
@@ -260,7 +259,7 @@ public class IndexAddFiller implements BackFiller {
             if (!caches.containsKey(cacheKey)) {
                 caches.put(cacheKey, txnLocalData);
             }
-            if (caches.size() % preBatch == 0) {
+            if (caches.size() % TxnUtil.max_pre_write_count == 0) {
                 try {
                     List<TxnLocalData> txnLocalDataList = new ArrayList<>(caches.values());
                     preWriteSecondSkipConflict(txnLocalDataList);
@@ -484,7 +483,7 @@ public class IndexAddFiller implements BackFiller {
                     param.addMutation(mutation);
                 } else if (partId.equals(newPartId)) {
                     param.addMutation(mutation);
-                    if (param.getMutations().size() == preBatch) {
+                    if (param.getMutations().size() == TxnUtil.max_pre_write_count) {
                         long sub = System.currentTimeMillis() - start;
                         LogUtils.debug(log, "pre write 1024 cost:{}", sub);
                         boolean result = Txn.txnPreWrite(param, txnId, indexTable.tableId, partId);

@@ -30,11 +30,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Data
@@ -63,8 +66,6 @@ public class DdlContext {
     private DdlWorkerPool ddlReorgPool;
 
     private AtomicLong newVer = new AtomicLong(0);
-
-    public static final String getJobSQL = "select job_meta, processing from mysql.dingo_ddl_job where job_id in (select min(job_id) from mysql.dingo_ddl_job group by schema_ids, table_ids, processing) and %s reorg %s order by processing desc, job_id";
 
     private DdlContext() {
         DdlWorkerFactory factory = new DdlWorkerFactory();
@@ -130,6 +131,18 @@ public class DdlContext {
         runningJobs.getLock().writeLock().lock();
         runningJobs.getRunningJobMap().remove(id);
         runningJobs.getLock().writeLock().unlock();
+    }
+
+    public List<Long> excludeQueueJobIDs() {
+        runningJobs.getLock().readLock().lock();
+        try {
+            if (runningJobs.size() == 0) {
+                return new ArrayList<>();
+            }
+            return new ArrayList<>(runningJobs.getRunningJobMap().values());
+        } finally {
+            runningJobs.getLock().readLock().unlock();
+        }
     }
 
     public String excludeJobIDs() {

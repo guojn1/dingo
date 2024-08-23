@@ -31,11 +31,11 @@ public final class ReorgUtil {
         if (job != null && !job.isFinished() && !job.isSynced()) {
             return;
         }
-        try {
-            JobTableUtil.cleanDDLReorgHandles(job);
-        } catch (Exception e) {
-            LogUtils.warn(log, "Failed removing the DDL reorg entry in dingo_ddl_reorg");
-        }
+        //try {
+        //    JobTableUtil.cleanDDLReorgHandles(job);
+        //} catch (Exception e) {
+        //    LogUtils.warn(log, "Failed removing the DDL reorg entry in dingo_ddl_reorg");
+        //}
     }
 
 }

@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.dingodb.common.ddl.ActionType;
 import io.dingodb.common.ddl.DdlJob;
 import io.dingodb.common.ddl.DdlUtil;
+import io.dingodb.common.ddl.JobRecord;
 import io.dingodb.common.ddl.MetaElement;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.metrics.DingoMetrics;
@@ -34,9 +35,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Date;
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 public final class JobTableUtil {
@@ -54,6 +58,24 @@ public final class JobTableUtil {
         String jobMeta = new String(bytes);
         String sql = String.format(updateDDLJobSQL, jobMeta, ddlJob.getId());
         return session.executeUpdate(sql);
+    }
+
+    public static String updateDDLJob2Queue(DdlJob ddlJob, boolean updateRawArgs) {
+        ddlJob.encode(updateRawArgs);
+        //String jobMeta = new String(bytes);
+        JobRecord jobRecord = InfoSchemaService.root().getJobRecord(ddlJob.getId());
+        if (jobRecord == null) {
+            LogUtils.error(log, "update ddl job get record null, jobId:{}", ddlJob.getId());
+            return "update ddl job get record null, jobId:" + ddlJob.getId();
+        }
+        jobRecord.setDdlJob(ddlJob);
+        try {
+            InfoSchemaService.root().updateJobRecord(jobRecord);
+            return null;
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return "updateQueueJobFailed";
+        }
     }
 
     public static void cleanDDLReorgHandles(DdlJob job) {
@@ -74,6 +96,16 @@ public final class JobTableUtil {
         return session.executeUpdate(sql);
     }
 
+    public static String deleteDDLQueueJob(DdlJob job) {
+        try {
+            InfoSchemaService.root().deleteJobRecord(job.getId());
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return "deleteDdlJobError";
+        }
+        return null;
+    }
+
     public static String addHistoryDDLJob2Table(Session session, DdlJob job, boolean updateRawArgs) {
         String time = DateTimeUtils.dateFormat(new Date(System.currentTimeMillis()), "yyyy-MM-dd HH:mm:ss");
         String sql = "insert into mysql.dingo_ddl_history(job_id, job_meta, schema_name, table_name, schema_ids, table_ids, create_time) values (%d, %s, %s, %s, %s, %s, %s)";
@@ -83,6 +115,10 @@ public final class JobTableUtil {
     }
 
     public static void cleanMDLInfo(long jobId) {
+        if (DdlUtil.mdlInfoQueue) {
+            cleanQueueMDLInfo(jobId);
+            return;
+        }
         String sql = "delete from mysql.dingo_mdl_info where job_id = " + jobId;
         String error = SessionUtil.INSTANCE.exeUpdateInTxn(sql);
         if (error != null) {
@@ -95,6 +131,39 @@ public final class JobTableUtil {
         String endTemplate = DdlUtil.MDL_PREFIX_TEMPLATE_END;
         String keyEnd = String.format(endTemplate, DdlUtil.tenantPrefix, DdlUtil.DDLAllSchemaVersionsByJob, jobId);
         infoSchemaService.delKvFromCoordinator(key, keyEnd);
+    }
+
+    public static void cleanQueueMDLInfo(long jobId) {
+        try {
+            InfoSchemaService.root().deleteMdlInfoRecord(jobId);
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+        }
+
+        InfoSchemaService infoSchemaService = InfoSchemaService.root();
+        String template = DdlUtil.MDL_PREFIX_TEMPLATE;
+        String key = String.format(template, DdlUtil.tenantPrefix, DdlUtil.DDLAllSchemaVersionsByJob, jobId);
+        String endTemplate = DdlUtil.MDL_PREFIX_TEMPLATE_END;
+        String keyEnd = String.format(endTemplate, DdlUtil.tenantPrefix, DdlUtil.DDLAllSchemaVersionsByJob, jobId);
+        infoSchemaService.delKvFromCoordinator(key, keyEnd);
+    }
+
+    public static Pair<DdlJob, String> getGenerateQueueJob(List<JobRecord> jobRecords) {
+        try {
+            return getQueueJob(general, jobRecords);
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return Pair.of(null, e.getMessage());
+        }
+    }
+
+    public static Pair<DdlJob, String> getReorgQueueJob(List<JobRecord> jobRecords) {
+        try {
+            return getQueueJob(reorg, jobRecords);
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return Pair.of(null, e.getMessage());
+        }
     }
 
     public static Pair<DdlJob, String> getGenerateJob(Session session) {
@@ -126,6 +195,74 @@ public final class JobTableUtil {
             return Pair.of(false, e.getMessage());
         }
         return Pair.of(resList.isEmpty(), null);
+    }
+
+    public static Pair<DdlJob, String> getQueueJob(int jobType, List<JobRecord> jobRecords) {
+        boolean reorg = jobType == 1;
+        List<Long> excludeJobIdList = DdlContext.INSTANCE.excludeQueueJobIDs();
+        Map<String, List<JobRecord>> jobRecordMap = jobRecords.stream()
+            .filter(jobRecord -> jobRecord.isReorg() == reorg
+                && !excludeJobIdList.contains(jobRecord.getJobId()))
+            .collect(Collectors.groupingBy(JobRecord::groupStr));
+        List<Long> jobIdList = jobRecordMap.values()
+            .stream().map(list -> list.stream().mapToLong(JobRecord::getJobId).min().getAsLong())
+            .collect(Collectors.toList());
+        List<JobRecord> jobRecords1 = jobRecords.stream()
+            .filter(jobRecord -> jobIdList.contains(jobRecord.getJobId()))
+            .sorted(Comparator.comparingInt(JobRecord::getProcessing).reversed()
+            .thenComparingLong(JobRecord::getJobId)).collect(Collectors.toList());
+        for (JobRecord jobRecord : jobRecords1) {
+            DdlJob ddlJob;
+            try {
+                ddlJob = jobRecord.getDdlJob();
+            } catch (Exception e) {
+                LogUtils.error(log, e.getMessage(), e);
+                return Pair.of(null, e.getMessage());
+            }
+            boolean processing = jobRecord.getProcessing() == 1;
+            if (processing) {
+                if (DdlContext.INSTANCE.getRunningJobs().containJobId(ddlJob.getId())) {
+                    //LogUtils.info(log, "get job process check has running,jobId:{}", ddlJob.getId());
+                    continue;
+                } else {
+                    //LogUtils.info(log, "get job processing true, jobId:{}", ddlJob.getId());
+                    return Pair.of(ddlJob, null);
+                }
+            }
+            Pair<Boolean, String> res = filterQueueJob(ddlJob, jobRecords);
+            if (res.getKey()) {
+                if (!markQueueJobProcess(jobRecord)) {
+                    LogUtils.error(log, "mark queue job process failed");
+                    return Pair.of(null, null);
+                }
+                return Pair.of(ddlJob, null);
+            }
+        }
+        return null;
+    }
+
+    public static Boolean markQueueJobProcess(JobRecord jobRecord) {
+        // update job processing
+        jobRecord.setProcessing(1);
+        try {
+            InfoSchemaService.root().updateJobRecord(jobRecord);
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return false;
+        }
+        return true;
+    }
+
+    public static Pair<Boolean, String> filterQueueJob(DdlJob job, List<JobRecord> jobRecords) {
+        if (job.getActionType() == ActionType.ActionDropSchema) {
+            boolean res = jobRecords.stream().noneMatch(jobRecord ->
+                jobRecord.getSchemaIds().equalsIgnoreCase(job.job2SchemaIDs()) && jobRecord.getProcessing() == 1);
+            return Pair.of(res, null);
+        }
+
+        boolean res = jobRecords.stream().noneMatch(jobRecord ->
+            jobRecord.getTableIds().equalsIgnoreCase(job.job2TableIDs()) && jobRecord.getProcessing() == 1);
+        return Pair.of(res, null);
     }
 
     public static Pair<DdlJob, String> getJob(Session session, int jobType, Function<DdlJob, Pair<Boolean, String>> filter) {
@@ -207,13 +344,13 @@ public final class JobTableUtil {
         try {
             Timer.Context timeCtx = DingoMetrics.getTimeContext("reorgJob");
             Pair<DdlJob, String> res = getJob(session, reorg, job1 -> {
-                String sql = "select job_id from mysql.dingo_ddl_job where "
-                    + "(schema_ids = %s and type = %d and processing) "
-                    + " or (table_ids = %s and processing) "
-                    + " limit 1";
-                sql = String.format(sql, Utils.quoteForSql(job1.getSchemaId()), job1.getActionType().getCode(), Utils.quoteForSql(job1.getTableId()));
-                return checkJobIsRunnable(session, sql);
-            });
+                    String sql = "select job_id from mysql.dingo_ddl_job where "
+                        + "(schema_ids = %s and type = %d and processing) "
+                        + " or (table_ids = %s and processing) "
+                        + " limit 1";
+                    sql = String.format(sql, Utils.quoteForSql(job1.getSchemaId()), job1.getActionType().getCode(), Utils.quoteForSql(job1.getTableId()));
+                    return checkJobIsRunnable(session, sql);
+                });
             timeCtx.stop();
             return res;
         } catch (Exception e) {

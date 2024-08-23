@@ -23,7 +23,9 @@ import io.dingodb.common.ddl.DdlJobEvent;
 import io.dingodb.common.ddl.DdlJobEventSource;
 import io.dingodb.common.ddl.DdlJobListenerImpl;
 import io.dingodb.common.ddl.DdlUtil;
+import io.dingodb.common.ddl.JobRecord;
 import io.dingodb.common.ddl.JobState;
+import io.dingodb.common.ddl.MdlInfoRecord;
 import io.dingodb.common.environment.ExecutionEnvironment;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.metrics.DingoMetrics;
@@ -122,8 +124,41 @@ public final class DdlServer {
             Utils.sleep(1000);
             return;
         }
-        loadDDLJobAndRun(session, JobTableUtil::getGenerateJob, DdlContext.INSTANCE.getDdlJobPool());
-        loadDDLJobAndRun(session, JobTableUtil::getReorgJob, DdlContext.INSTANCE.getDdlReorgPool());
+        if (DdlUtil.jobQueue) {
+            long start = System.currentTimeMillis();
+            List<JobRecord> jobRecords = io.dingodb.meta.InfoSchemaService.root().getAllJobRecord();
+            long sub = System.currentTimeMillis() - start;
+            DingoMetrics.timer("getJobRecords").update(sub, TimeUnit.MILLISECONDS);
+            loadDDLQueueJobAndRun(jobRecords, JobTableUtil::getGenerateQueueJob, DdlContext.INSTANCE.getDdlJobPool());
+            loadDDLQueueJobAndRun(jobRecords, JobTableUtil::getReorgQueueJob, DdlContext.INSTANCE.getDdlReorgPool());
+        } else {
+            loadDDLJobAndRun(session, JobTableUtil::getGenerateJob, DdlContext.INSTANCE.getDdlJobPool());
+            loadDDLJobAndRun(session, JobTableUtil::getReorgJob, DdlContext.INSTANCE.getDdlReorgPool());
+        }
+    }
+
+    static synchronized void loadDDLQueueJobAndRun(List<JobRecord> jobRecords,
+        Function<List<JobRecord>, Pair<DdlJob, String>> getJob, DdlWorkerPool pool) {
+        long start = System.currentTimeMillis();
+        Pair<DdlJob, String> res = getJob.apply(jobRecords);
+        if (res == null || res.getValue() != null) {
+            return;
+        }
+        DdlJob ddlJob = res.getKey();
+        if (ddlJob == null) {
+            return;
+        }
+        long sub = System.currentTimeMillis() - start;
+        if (sub > 150) {
+            LogUtils.info(log, "get job cost:{}", sub);
+        }
+        DingoMetrics.timer("loadDdlJob").update(sub, TimeUnit.MILLISECONDS);
+        try {
+            DdlWorker worker = pool.borrowObject();
+            delivery2worker(worker, ddlJob, pool);
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+        }
     }
 
     static synchronized void loadDDLJobAndRun(Session session, Function<Session, Pair<DdlJob, String>> getJob, DdlWorkerPool pool) {
@@ -200,6 +235,7 @@ public final class DdlServer {
             } catch (Exception e) {
                 LogUtils.error(log, "delivery2worker failed", e);
             } finally {
+                boolean done = false;
                 if (ddlJob.isDone() || ddlJob.isRollbackDone()) {
                     if (ddlJob.isDone()) {
                         ddlJob.setState(JobState.jobStateSynced);
@@ -207,17 +243,24 @@ public final class DdlServer {
                     String error = worker.handleJobDone(ddlJob);
                     if (error != null) {
                         LogUtils.error(log, "[ddl-error] handle job done error:{}", error);
+                    } else {
+                        done = true;
                     }
                 }
                 dc.deleteRunningDDLJobMap(ddlJob.getId());
                 pool.returnObject(worker);
                 timeCtx.stop();
-                DdlHandler.asyncNotify(1);
+                if (!done) {
+                    DdlHandler.asyncNotify(1);
+                }
             }
         });
     }
 
     static Pair<Boolean, Long> checkMDLInfo(long jobId) throws SQLException {
+        if (DdlUtil.mdlInfoQueue) {
+            return checkQueueMDLInfo(jobId);
+        }
         String sql = "select version from mysql.dingo_mdl_info where job_id = " + jobId;
         Session session = SessionUtil.INSTANCE.getSession();
         try {
@@ -229,6 +272,20 @@ public final class DdlServer {
             return Pair.of(true, ver);
         } finally {
             SessionUtil.INSTANCE.closeSession(session);
+        }
+    }
+
+    static Pair<Boolean, Long> checkQueueMDLInfo(long jobId) {
+        try {
+            MdlInfoRecord mdlInfoRecord = io.dingodb.meta.InfoSchemaService.root().getMdlInfoRecord(jobId);
+            if (mdlInfoRecord == null) {
+                //LogUtils.error(log, "check queue mdl info get record null, jobId:{}", jobId);
+                return Pair.of(false, 0L);
+            }
+            return Pair.of(true, mdlInfoRecord.getVersion());
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return Pair.of(false, 0L);
         }
     }
 

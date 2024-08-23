@@ -16,7 +16,9 @@
 
 package io.dingodb.server.executor.schedule;
 
+import io.dingodb.common.ddl.DdlUtil;
 import io.dingodb.common.ddl.MdlCheckTableInfo;
+import io.dingodb.common.ddl.MdlInfoRecord;
 import io.dingodb.common.ddl.SchemaDiff;
 import io.dingodb.common.environment.ExecutionEnvironment;
 import io.dingodb.common.log.LogUtils;
@@ -47,6 +49,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 public final class LoadInfoSchemaTask {
@@ -96,7 +99,11 @@ public final class LoadInfoSchemaTask {
             LogUtils.error(log, "reload error, reason:{}", e.getMessage());
         }
         try {
-            refreshMDLCheckTableInfo();
+            if (DdlUtil.mdlInfoQueue) {
+                refreshQueueMDLCheckTableInfo();
+            } else {
+                refreshMDLCheckTableInfo();
+            }
         } catch (Exception e) {
             LogUtils.error(log, "refreshMDLCheckTableInfo error, reason:{}", e.getMessage());
         }
@@ -260,6 +267,39 @@ public final class LoadInfoSchemaTask {
                 mdlCheckTableInfo.getJobsVerMap().put(jobId, (Long) objects[1]);
             });
             LogUtils.info(log, "[ddl] load mdl table info:{}", mdlCheckTableInfo);
+        } finally {
+            mdlCheckTableInfo.wUnlock();
+        }
+    }
+
+    public static void refreshQueueMDLCheckTableInfo() {
+        InfoSchema is = InfoCache.infoCache.getLatest();
+        if (is == null) {
+            return;
+        }
+        long schemaVer = is.schemaMetaVersion;
+        if (!ScopeVariables.runDdl()) {
+            return;
+        }
+        List<MdlInfoRecord> mdlInfoList = io.dingodb.meta.InfoSchemaService.root().getAllMdlInfoRecord();
+        if (mdlInfoList.isEmpty()) {
+            return;
+        }
+        List<MdlInfoRecord> filterList = mdlInfoList.stream()
+            .filter(mdlInfoRecord -> mdlInfoRecord.getVersion() <= schemaVer)
+            .collect(Collectors.toList());
+        MdlCheckTableInfo mdlCheckTableInfo = ExecutionEnvironment.INSTANCE.mdlCheckTableInfo;
+        try {
+            mdlCheckTableInfo.wLock();
+            mdlCheckTableInfo.setJobsIdsMap(new ConcurrentHashMap<>());
+            mdlCheckTableInfo.setJobsVerMap(new ConcurrentHashMap<>());
+            mdlCheckTableInfo.setNewestVer(schemaVer);
+            filterList.forEach(mdlInfoRecord -> {
+                Long jobId = mdlInfoRecord.getJobId();
+                mdlCheckTableInfo.getJobsIdsMap().put(jobId, mdlInfoRecord.getTableIds());
+                mdlCheckTableInfo.getJobsVerMap().put(jobId, mdlInfoRecord.getVersion());
+            });
+            LogUtils.info(log, "[ddl] load queue mdl table info:{}", mdlCheckTableInfo);
         } finally {
             mdlCheckTableInfo.wUnlock();
         }

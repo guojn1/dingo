@@ -20,6 +20,7 @@ import io.dingodb.codec.CodecService;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.log.LogUtils;
 import io.dingodb.common.partition.RangeDistribution;
+import io.dingodb.common.txn.TxnUtil;
 import io.dingodb.common.util.ByteArrayUtils;
 import io.dingodb.common.util.Utils;
 import io.dingodb.meta.MetaService;
@@ -100,7 +101,7 @@ public abstract class CommitBase {
     ) {
         byte[] primaryKey = mutation.getKey();
         // 2、call sdk preWritePrimaryKey
-        long lockTtl = TsoService.getDefault().timestamp() + 60;
+        long lockTtl = TsoService.getDefault().timestamp() + TxnUtil.lock_ttl;
 
         TxnPreWrite txnPreWrite = TxnPreWrite.builder()
             .isolationLevel(IsolationLevel.of(

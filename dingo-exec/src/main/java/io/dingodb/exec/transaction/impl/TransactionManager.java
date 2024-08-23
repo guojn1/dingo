@@ -19,6 +19,7 @@ package io.dingodb.exec.transaction.impl;
 import io.dingodb.common.CommonId;
 import io.dingodb.common.config.DingoConfiguration;
 import io.dingodb.common.log.LogUtils;
+import io.dingodb.common.txn.TxnUtil;
 import io.dingodb.common.util.Optional;
 import io.dingodb.exec.transaction.base.ITransaction;
 import io.dingodb.exec.transaction.base.TransactionType;
@@ -112,7 +113,7 @@ public final class TransactionManager {
     }
 
     public static long lockTtlTm() {
-        return TsoService.getDefault().timestamp() + TransactionUtil.lock_ttl;
+        return TsoService.getDefault().timestamp() + TxnUtil.lock_ttl;
     }
 
     public static Object getTable(CommonId txnId, CommonId tableId) {
