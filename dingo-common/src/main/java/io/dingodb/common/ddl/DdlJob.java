@@ -54,6 +54,7 @@ public class DdlJob {
     private String query;
     private long version;
     private String connId;
+    private long lockVerTs;
 
     private byte[] rawArgs;
     private DdlReorgMeta reorgMeta;

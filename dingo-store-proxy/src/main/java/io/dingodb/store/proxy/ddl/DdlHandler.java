@@ -164,7 +164,7 @@ public final class DdlHandler {
         ddlJob.setConnId(connId);
         //ddlJob.setQuery(sql);
         try {
-            doDdlJob(ddlJob);
+            doDdlJob(ddlJob, 60000);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] create table error,reason:" + e.getMessage() + ", tabDef" + tableDefinition, e);
             throw e;
@@ -182,7 +182,7 @@ public final class DdlHandler {
             .build();
         job.setConnId(connId);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 20000);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] drop table error,reason:" + e.getMessage() + ", tabDef" + tableName, e);
             throw e;
@@ -206,7 +206,7 @@ public final class DdlHandler {
         job.setArgs(args);
         job.setConnId(connId);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 20000);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] createSchema error, reason:" + e.getMessage(), e);
             throw e;
@@ -221,7 +221,7 @@ public final class DdlHandler {
             .schemaId(schemaInfo.getSchemaId()).build();
         job.setConnId(connId);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 20000);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] dropSchema error, schema:" + schemaInfo.getName(), e);
             throw e;
@@ -248,7 +248,7 @@ public final class DdlHandler {
         args.add(tableEntityId);
         job.setArgs(args);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 120000);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] truncate table error, table:" + table.getName(), e);
             throw e;
@@ -278,7 +278,7 @@ public final class DdlHandler {
         args.add(indexDef);
         job.setArgs(args);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 0);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] createIndex error, tableName:" + tableName, e);
             throw e;
@@ -314,7 +314,7 @@ public final class DdlHandler {
         args.add(indexName);
         job.setArgs(args);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 0);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] dropIndex error, tableName:" + tableName + ", indexName:" + indexName, e);
             throw e;
@@ -334,7 +334,7 @@ public final class DdlHandler {
         args.add(column);
         job.setArgs(args);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 0);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] add column error, tableName:" + table.getName() + ", column:" + column.getName(), e);
             throw e;
@@ -363,7 +363,7 @@ public final class DdlHandler {
         args.add(relatedIndex);
         job.setArgs(args);
         try {
-            doDdlJob(job);
+            doDdlJob(job, 0);
         } catch (Exception e) {
             LogUtils.error(log, "[ddl-error] dropColumn error, tableName:" + tableName + ", columnName:" + columnName, e);
             throw e;
@@ -396,10 +396,11 @@ public final class DdlHandler {
             .build();
     }
 
-    public static void doDdlJob(DdlJob job) {
+    public static void doDdlJob(DdlJob job, long timeout) {
         // put job to queue
         forcePut(asyncJobQueue, job);
         // get history job from history
+        long start = System.currentTimeMillis();
         while (!Thread.interrupted()) {
             Pair<Boolean, String> res = historyJob(job.getId());
             if (res.getKey()) {
@@ -409,6 +410,13 @@ public final class DdlHandler {
                 throw new RuntimeException(res.getValue());
             }
             Utils.sleep(50);
+            long sub = System.currentTimeMillis() - start;
+            if (timeout == 0) {
+                continue;
+            }
+            if (sub > timeout) {
+                throw new RuntimeException("wait ddl timeout");
+            }
         }
     }
 

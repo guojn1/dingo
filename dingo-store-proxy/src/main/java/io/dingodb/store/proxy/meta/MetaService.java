@@ -285,12 +285,14 @@ public class MetaService implements io.dingodb.meta.MetaService {
         TableIdWithPartIds tableIdWithPartIds =
             TableIdWithPartIds.builder().tableId(tableId).partIds(tablePartIds).build();
         TableDefinitionWithId tableDefinitionWithId = MAPPER.tableTo(tableIdWithPartIds, tableDefinition, TenantConstant.TENANT_ID);
+        LogUtils.info(log, "[ddl] create table gen id done, tableName:{}", tableDefinition.getName());
         // create table
         infoSchemaService.createTableOrView(
             id.getEntityId(),
             tableDefinitionWithId.getTableId().getEntityId(),
             tableDefinitionWithId
         );
+        LogUtils.info(log, "[ddl] create table def done, tableName:{}", tableDefinition.getName());
 
         // table region
         io.dingodb.sdk.service.entity.meta.TableDefinition withIdTableDefinition
@@ -311,6 +313,7 @@ public class MetaService implements io.dingodb.meta.MetaService {
                 .build();
             coordinatorService.createRegion(tso(), request);
         }
+        LogUtils.info(log, "[ddl] create table region done, tableName:{}", tableDefinition.getName());
         long incrementColCount = tableDefinition.getColumns()
             .stream()
             .filter(ColumnDefinition::isAutoIncrement)
@@ -382,6 +385,7 @@ public class MetaService implements io.dingodb.meta.MetaService {
                         indexWithId
                     );
                 }
+                LogUtils.info(log, "[ddl] create table index def done, tableName:{}", tableDefinition.getName());
 
                 // index region
                 for (TableDefinitionWithId withId : indexWithIds) {
@@ -412,6 +416,7 @@ public class MetaService implements io.dingodb.meta.MetaService {
                         coordinatorService.createRegion(tso(), request);
                     }
                 }
+                LogUtils.info(log, "[ddl] create table index region done, tableName:{}", tableDefinition.getName());
             }
         } catch (Exception e) {
             dropTable(tableDefinition.getName());

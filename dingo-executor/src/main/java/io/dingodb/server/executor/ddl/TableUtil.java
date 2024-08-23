@@ -43,7 +43,6 @@ public final class TableUtil {
         tableInfo.setPrepareTableId(tableId);
 
         InfoSchemaService service = InfoSchemaService.root();
-        assert service != null;
         Object tabObj = service.getTable(schemaId, tableInfo.getName());
         if (tabObj != null) {
             ddlJob.setState(JobState.jobStateCancelled);
@@ -57,9 +56,11 @@ public final class TableUtil {
             if (indices != null) {
                 indices.forEach(index -> index.setSchemaState(SchemaState.SCHEMA_PUBLIC));
             }
+            LogUtils.info(log, "[ddl] table util meta will create table");
             try {
                 assert indices != null;
                 subMs.createTables(tableInfo, indices);
+                LogUtils.info(log, "[ddl] table util meta create table done");
                 return Pair.of(tableInfo, null);
             } catch (Exception e) {
                 subMs.rollbackCreateTable(tableInfo, indices);

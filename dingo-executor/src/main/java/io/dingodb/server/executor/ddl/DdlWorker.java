@@ -50,8 +50,10 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -105,7 +107,7 @@ public class DdlWorker {
             // session reset
             session.rollback();
             String error = handleJobDone(job);
-            dc.getSv().unlockSchemaVersion(job.getId());
+            dc.getSv().unlockSchemaVersion(job);
             LogUtils.warn(log, "[ddl] job is cancelled, handleJobDone, jobId:{}", job.getId());
             return Pair.of(0L, error);
         }
@@ -123,7 +125,7 @@ public class DdlWorker {
         LogUtils.info(log, "registerMDLInfo done, jobId:{}", job.getId());
         if (error != null) {
             session.rollback();
-            dc.getSv().unlockSchemaVersion(job.getId());
+            dc.getSv().unlockSchemaVersion(job);
             LogUtils.warn(log, "[ddl] registerMdlInfo failed, reason:{}, jobId:{}", error, job.getId());
             return Pair.of(0L, error);
         }
@@ -136,7 +138,7 @@ public class DdlWorker {
             // session rollback
             session.rollback();
             // unlockSchemaVersion
-            dc.getSv().unlockSchemaVersion(job.getId());
+            dc.getSv().unlockSchemaVersion(job);
             LogUtils.warn(log, "[ddl] update ddl job failed, reason:{}, jobId:{}", error, job.getId());
             return Pair.of(0L, error);
         }
@@ -151,7 +153,7 @@ public class DdlWorker {
             LogUtils.error(log, "[ddl] run and update ddl job commit error," + e.getMessage(), e);
         } finally {
             // unlockSchemaVersion
-            dc.getSv().unlockSchemaVersion(job.getId());
+            dc.getSv().unlockSchemaVersion(job);
         }
 
         registerSync(dc, job);
@@ -433,7 +435,10 @@ public class DdlWorker {
             ddlJob.setState(JobState.jobStateCancelled);
             return Pair.of(0L, err);
         }
+        long start = System.currentTimeMillis();
         Pair<TableDefinition, String> res = TableUtil.createTable(ddlJob);
+        long sub = System.currentTimeMillis() - start;
+        DingoMetrics.timer("tableUtilCreate").update(sub, TimeUnit.MILLISECONDS);
         if (res.getValue() != null) {
             return Pair.of(0L, res.getValue());
         }
@@ -953,11 +958,23 @@ public class DdlWorker {
         return addHistoryDDLJob(session, job, updateRawArgs);
     }
 
+    public static Map<Long, Long> hisJobMap = new ConcurrentHashMap<>();
     public static String addHistoryDDLJob(Session session, DdlJob job, boolean updateRawArgs) {
         InfoSchemaService infoSchemaService = InfoSchemaService.root();
-        assert infoSchemaService != null;
-        infoSchemaService.addHistoryDDLJob(job, false);
-        return JobTableUtil.addHistoryDDLJob2Table(session, job, updateRawArgs);
+        try {
+            infoSchemaService.addHistoryDDLJob(job, false);
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return "addHistoryDDLJobError";
+        }
+        LogUtils.info(log, "[ddl] add history jobId:{}", job.getId());
+        if (hisJobMap.containsKey(job.getId())) {
+            LogUtils.error(log, "[ddl-error] addHistoryDDLJobError duplicate jobId:{}", job.getId());
+        } else {
+            hisJobMap.put(job.getId(), job.getId());
+        }
+        //return JobTableUtil.addHistoryDDLJob2Table(session, job, updateRawArgs);
+        return null;
     }
 
     public static String waitSchemaSyncedForMDL(DdlContext dc, DdlJob ddlJob, long latestSchemaVersion) {
