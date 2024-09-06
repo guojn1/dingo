@@ -157,8 +157,8 @@ public final class DdlServer {
             Utils.sleep(1000);
             return;
         }
-        loadDDLJobsAndRun(session, JobTableUtil::getGenerateJobs, DdlContext.INSTANCE.getDdlJobPool());
-        //loadDDLJobsAndRun(session, JobTableUtil::getReorgJobs, DdlContext.INSTANCE.getDdlReorgPool());
+        loadDDLJobAndRun(session, JobTableUtil::getGenerateJob, DdlContext.INSTANCE.getDdlJobPool());
+        loadDDLJobAndRun(session, JobTableUtil::getReorgJob, DdlContext.INSTANCE.getDdlReorgPool());
     }
 
     static synchronized void loadDDLJobsAndRun(Session session, Function<Session, Pair<List<DdlJob>, String>> getJob, DdlWorkerPool pool) {

@@ -291,6 +291,14 @@ public final class JobTableUtil {
     }
 
     public static String markJobProcessing(Session session, DdlJob job) {
+        Timer.Context timeCtx = DingoMetrics.getTimeContext("markJobProcessing");
+        String sql = "update mysql.dingo_ddl_job set processing = true where job_id = " + job.getId();
+        String res = markJobProcessing(session, sql, 3);
+        timeCtx.stop();
+        return res;
+    }
+
+    public static String markJobProcessing(DdlJob job) {
         Session session1 = SessionUtil.INSTANCE.getSession();
         try {
             Timer.Context timeCtx = DingoMetrics.getTimeContext("markJobProcessing");

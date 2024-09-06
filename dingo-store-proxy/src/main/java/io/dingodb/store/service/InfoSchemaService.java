@@ -692,7 +692,6 @@ public class InfoSchemaService implements io.dingodb.meta.InfoSchemaService {
         } catch (Exception e) {
             LogUtils.error(log, e.getMessage(), e);
             if (retry-- > 0) {
-                resetVerService();
                 putKvToCoordinator(putRequest, retry);
             }
         }
@@ -993,11 +992,6 @@ public class InfoSchemaService implements io.dingodb.meta.InfoSchemaService {
             id = Long.parseLong(new String(val));
         }
         return id;
-    }
-
-    public void resetVerService() {
-        Services.invalidateVersionService(coordinators);
-        this.versionService = Services.versionService(coordinators);
     }
 
 }

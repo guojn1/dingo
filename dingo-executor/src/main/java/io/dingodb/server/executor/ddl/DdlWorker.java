@@ -103,7 +103,7 @@ public class DdlWorker {
             // session reset
             session.rollback();
             String error = handleJobDone(job);
-            //dc.getSv().unlockSchemaVersion(job);
+            dc.getSv().unlockSchemaVersion(job);
             LogUtils.warn(log, "[ddl] job is cancelled, handleJobDone, jobId:{}", job.getId());
             return Pair.of(0L, error);
         }
@@ -120,7 +120,7 @@ public class DdlWorker {
         DingoMetrics.timer("registerMDLInfo").update((end - start), TimeUnit.MILLISECONDS);
         if (error != null) {
             session.rollback();
-            //dc.getSv().unlockSchemaVersion(job);
+            dc.getSv().unlockSchemaVersion(job);
             LogUtils.warn(log, "[ddl] registerMdlInfo failed, reason:{}, jobId:{}", error, job.getId());
             return Pair.of(0L, error);
         }
@@ -131,7 +131,7 @@ public class DdlWorker {
             // session rollback
             session.rollback();
             // unlockSchemaVersion
-            //dc.getSv().unlockSchemaVersion(job);
+            dc.getSv().unlockSchemaVersion(job);
             LogUtils.warn(log, "[ddl] update ddl job failed, reason:{}, jobId:{}", error, job.getId());
             return Pair.of(0L, error);
         }
@@ -142,7 +142,7 @@ public class DdlWorker {
             LogUtils.error(log, "[ddl] run and update ddl job commit error," + e.getMessage(), e);
         } finally {
             // unlockSchemaVersion
-            //dc.getSv().unlockSchemaVersion(job);
+            dc.getSv().unlockSchemaVersion(job);
         }
 
         registerSync(dc, job);
@@ -163,27 +163,26 @@ public class DdlWorker {
         if (ver == 0) {
             return null;
         }
-//        List<Object[]> rows;
-//        try {
-//            rows = this.session.executeQuery("select table_ids from mysql.dingo_ddl_job where job_id = " + job.getId());
-//        } catch (Exception e) {
-//            LogUtils.error(log, e.getMessage(), e);
-//            return e.getMessage();
-//        }
-//        if (rows.isEmpty()) {
-//            return "can't find ddl job " + job.getId();
-//        }
-//        String ids = (String) rows.get(0)[0];
-        String ids = job.job2TableIDs();
+        List<Object[]> rows;
+        try {
+            rows = this.session.executeQuery("select table_ids from mysql.dingo_ddl_job where job_id = " + job.getId());
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+            return e.getMessage();
+        }
+        if (rows.isEmpty()) {
+            return "can't find ddl job " + job.getId();
+        }
+        String ids = (String) rows.get(0)[0];
         boolean duplicate = false;
-//        try {
-//            List<Object[]> res = session.executeQuery("select job_id from mysql.dingo_mdl_info where job_id=" + job.getId());
-//            if (!res.isEmpty()) {
-//                duplicate = true;
-//            }
-//        } catch (Exception e) {
-//            LogUtils.error(log, e.getMessage(), e);
-//        }
+        try {
+            List<Object[]> res = session.executeQuery("select job_id from mysql.dingo_mdl_info where job_id=" + job.getId());
+            if (!res.isEmpty()) {
+                duplicate = true;
+            }
+        } catch (Exception e) {
+            LogUtils.error(log, e.getMessage(), e);
+        }
         String sql;
         if (duplicate) {
             DingoMetrics.counter("registerMDLInfoDuplicate").inc();
@@ -915,8 +914,6 @@ public class DdlWorker {
         } catch (Exception e) {
             LogUtils.error(log, "updateSchemaVersion: setSchemaVer failed, reason:{}", e.getMessage());
             return Pair.of(0L, e.getMessage());
-        } finally {
-            dc.getSv().unlockSchemaVersion(ddlJob);
         }
         try {
             SchemaDiff schemaDiff = SchemaDiff

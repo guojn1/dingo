@@ -61,7 +61,7 @@ public final class DdlUtil {
     public static Map<String, String> tableMap = new ConcurrentHashMap<>();
 
     public static boolean mdlEnable = true;
-    public static boolean delDiff = true;
+    public static boolean delDiff = false;
     public static boolean historyJobEtcd = false;
 
     public static int errorCountLimit = 5;
