@@ -255,6 +255,50 @@ public class MetaService implements io.dingodb.meta.MetaService {
     }
 
     @Override
+    public void createView(String tableName, TableDefinition tableDefinition) {
+        CoordinatorService coordinatorService = Services.coordinatorService(Configuration.coordinatorSet());
+
+        long tableEntityId;
+        if (tableDefinition.getPrepareTableId() != 0) {
+            tableEntityId = tableDefinition.getPrepareTableId();
+        } else {
+            // Generate new table ids.
+            tableEntityId = coordinatorService.createIds(
+                tso(),
+                CreateIdsRequest.builder()
+                    .idEpochType(IdEpochType.ID_NEXT_TABLE).count(1)
+                    .build()
+            ).getIds().get(0);
+        }
+        DingoCommonId tableId = DingoCommonId.builder()
+            .entityType(EntityType.ENTITY_TYPE_TABLE)
+            .parentEntityId(id.getEntityId())
+            .entityId(tableEntityId).build();
+//        List<DingoCommonId> tablePartIds = coordinatorService.createIds(tso(), CreateIdsRequest.builder()
+//                .idEpochType(IdEpochType.ID_NEXT_TABLE)
+//                .count(tableDefinition.getPartDefinition().getDetails().size())
+//                .build()
+//            )
+//            .getIds()
+//            .stream()
+//            .map(id -> DingoCommonId.builder()
+//                .entityType(EntityType.ENTITY_TYPE_PART)
+//                .parentEntityId(tableEntityId)
+//                .entityId(id).build())
+//            .collect(Collectors.toList());
+        TableIdWithPartIds tableIdWithPartIds =
+            TableIdWithPartIds.builder().tableId(tableId).build();
+        TableDefinitionWithId tableDefinitionWithId = MAPPER.tableTo(tableIdWithPartIds, tableDefinition, TenantConstant.TENANT_ID);
+        // create view
+        infoSchemaService.createTableOrView(
+            id.getEntityId(),
+            tableDefinitionWithId.getTableId().getEntityId(),
+            tableDefinitionWithId
+        );
+    }
+
+
+    @Override
     public long createTables(
         @NonNull TableDefinition tableDefinition, @NonNull List<IndexDefinition> indexTableDefinitions
     ) {

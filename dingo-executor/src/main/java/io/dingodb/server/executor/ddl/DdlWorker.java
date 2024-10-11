@@ -254,6 +254,11 @@ public class DdlWorker {
             case ActionAddColumn:
                 res = onAddColumn(dc, job);
                 break;
+            case ActionCreateView:
+                res = onCreateView(dc, job);
+                break;
+            case ActionDropView:
+                break;
             default:
                 job.setState(JobState.jobStateCancelled);
                 break;
@@ -1079,6 +1084,32 @@ public class DdlWorker {
         reorgCtx.setRowCount(reorgInfo.getDdlJob().getRowCount());
         DdlContext.INSTANCE.getReorgCtx().putReorg(reorgInfo.getDdlJob().getId(), reorgCtx);
         return reorgCtx;
+    }
+
+    public static Pair<Long, String> onCreateView(DdlContext dc, DdlJob ddlJob) {
+        String err = ddlJob.decodeArgs();
+        if (err != null) {
+            ddlJob.setState(JobState.jobStateCancelled);
+            return Pair.of(0L, err);
+        }
+        Pair<TableDefinition, String> res = TableUtil.createView(ddlJob);
+        if (res.getValue() != null) {
+            return Pair.of(0L, res.getValue());
+        }
+        LogUtils.info(log, "[ddl] create view info done, jobId:{}", ddlJob.getId());
+
+        Pair<Long, String> res1 = updateSchemaVersion(dc, ddlJob);
+
+        if (res1.getValue() != null) {
+            return res1;
+        }
+        ddlJob.finishTableJob(JobState.jobStateDone, SchemaState.SCHEMA_PUBLIC);
+        LogUtils.debug(log, "[ddl] onCreateView done, jobId:{}", ddlJob.getId());
+        return res1;
+    }
+
+    public static Pair<Long, String> onDropView(DdlContext dc, DdlJob ddlJob) {
+        return null;
     }
 
     public static void checkDropColumnForStatePublic(ColumnDefinition columnDefinition) {
