@@ -883,7 +883,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
             }
         }
         ColumnDefinition newColumn = getAddColumn(context, sqlAlterAddColumn, definition, tableName);
-        validateAddOrModifyColumn(newColumn, true);
+        validateAddOrModifyColumn(newColumn, definition);
         SqlIdentifier afterCol = sqlAlterAddColumn.getAfterCol();
         String afterColName;
         if (afterCol != null) {
@@ -1710,7 +1710,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
             if (newColumn == null) {
                 throw DINGO_RESOURCE.unknownColumn(name, tableName).ex();
             }
-            checkModifyTypes(schema.getSchemaName(), tableName, oldColumn, newColumn);
+            checkModifyTypes(schema.getSchemaName(), tableName, oldColumn, newColumn, table);
 
             newColumn.setSchemaState(SchemaState.SCHEMA_NONE);
 
@@ -1782,7 +1782,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
             afterColName = null;
         }
         newColumn.setName(sqlAlterChangeColumn.newName.getSimple());
-        checkModifyTypes(schema.getSchemaName(), tableName, oldColumn, newColumn);
+        checkModifyTypes(schema.getSchemaName(), tableName, oldColumn, newColumn, table);
         if (sqlAlterChangeColumn.isPreValidate()) {
             sqlAlterChangeColumn.setPreValidate(false);
             return;
@@ -2303,7 +2303,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
         return targetReplica;
     }
 
-    private static void validateAddOrModifyColumn(ColumnDefinition newColumn, boolean addCol) {
+    private static void validateAddOrModifyColumn(ColumnDefinition newColumn, Table table) {
         DingoType type = newColumn.getType();
         if ("NULL".equalsIgnoreCase(newColumn.getDefaultValue())) {
             newColumn.setDefaultValue(null);
@@ -2311,6 +2311,13 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
         if (newColumn.getDefaultValue() != null) {
             try {
                 String defaultVal = newColumn.getDefaultValue();
+                if (defaultVal.startsWith("(`") && defaultVal.endsWith("`)")) {
+                    defaultVal = defaultVal.substring(2, defaultVal.length() - 2);
+                    Column refColumn = table.getColumn(defaultVal);
+                    if (refColumn != null && refColumn.getType() == newColumn.getType()) {
+                        return;
+                    }
+                }
                 if (type instanceof LongType) {
                     Long.parseLong(defaultVal);
                 } else if (type instanceof IntegerType) {
@@ -3136,14 +3143,15 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
         String schemaName,
         String tableName,
         ColumnDefinition originColDef,
-        ColumnDefinition toColDef
+        ColumnDefinition toColDef,
+        Table table
     ) {
         // checkModifyTypeCompatible
         DingoSqlException exception = checkModifyTypeCompatible(schemaName, tableName, originColDef, toColDef);
         if (exception != null) {
             throw exception;
         }
-        validateAddOrModifyColumn(toColDef, false);
+        validateAddOrModifyColumn(toColDef, table);
         // checkModifyCharsetAndCollation
     }
 
@@ -3212,7 +3220,7 @@ public class DingoDdlExecutor extends DdlExecutorImpl {
                     throw DINGO_RESOURCE.unknownTable(schema.getSchemaName() + "." + tableName).ex();
                 }
                 ColumnDefinition newColumn = getAddColumn(context, sqlAlterAddColumn, table, tableName);
-                validateAddOrModifyColumn(newColumn, true);
+                validateAddOrModifyColumn(newColumn, table);
                 SqlIdentifier afterCol = sqlAlterAddColumn.getAfterCol();
                 String afterColName;
                 if (afterCol != null) {

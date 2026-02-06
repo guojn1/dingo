@@ -154,15 +154,13 @@ public class TxnPartInsertOperator extends PartModifyOperator {
                 .map(Column::getName)
                 .collect(Collectors.toList()));
             tableId = context.getIndexId();
-            if (!param.isPessimisticTxn()) {
-            }
             Object defaultVal = null;
             if (columnIndices.contains(-1)) {
                 Column addColumn = indexTable.getColumns().stream()
                     .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                     .findFirst().orElse(null);
                 if (addColumn != null) {
-                    defaultVal = addColumn.getDefaultVal();
+                    defaultVal = addColumn.getDefaultVal(indexTable);
                 }
             }
             Object[] finalTuple = tuple;
@@ -214,7 +212,7 @@ public class TxnPartInsertOperator extends PartModifyOperator {
                             .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                             .findFirst().orElse(null);
                         if (addColumn != null) {
-                            defaultVal1 = addColumn.getDefaultVal();
+                            defaultVal1 = addColumn.getDefaultVal(indexTable);
                         }
                     }
                     Object finalDefaultVal1 = defaultVal1;
@@ -226,8 +224,6 @@ public class TxnPartInsertOperator extends PartModifyOperator {
                         return finalGetPrimaryTuple[i];
                     }).toArray();
                     indexOldTuple = getPrimaryTuple;
-                    if (!param.isPessimisticTxn()) {
-                    }
                     PartitionService ps = PartitionService.getService(
                         Optional.ofNullable(indexTable.getPartitionStrategy())
                             .orElse(DingoPartitionServiceProvider.RANGE_FUNC_NAME));

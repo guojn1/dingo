@@ -138,7 +138,7 @@ public class PessimisticLockInsertOperator extends SoleOutOperator {
                         .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                         .findFirst().orElse(null);
                     if (addColumn != null) {
-                        defaultVal = addColumn.getDefaultVal();
+                        defaultVal = addColumn.getDefaultVal(indexTable);
                     }
                 }
                 tableId = context.getIndexId();
@@ -227,7 +227,7 @@ public class PessimisticLockInsertOperator extends SoleOutOperator {
                                     .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                                     .findFirst().orElse(null);
                                 if (addColumn != null) {
-                                    oldDefaultVal = addColumn.getDefaultVal();
+                                    oldDefaultVal = addColumn.getDefaultVal(indexTable);
                                 }
                             }
                             Object finalOldDefaultVal = oldDefaultVal;

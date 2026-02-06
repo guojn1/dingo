@@ -81,9 +81,17 @@ public class AddMultiColumnFiller extends AbstractFiller {
         for (int i = 0; i < indexTable.getColumns().size(); i ++) {
             Column column = indexTable.getColumns().get(i);
             if (column.getSchemaState() != SchemaState.SCHEMA_PUBLIC) {
-                Object defaultVal = column.getFillerValue();
+                Object defaultVal = column.getFillerValue(table);
+                boolean refOtherCol = false;
+                if (defaultVal instanceof String) {
+                    String defaultValStr = defaultVal.toString();
+                    if (defaultValStr.startsWith("refValIndex(") && defaultValStr.endsWith(")")) {
+                        defaultVal = defaultValStr.substring(12, defaultValStr.length() - 1);
+                        refOtherCol = true;
+                    }
+                }
                 boolean nullable = column.isNullable();
-                addColumnList.add(new AddColumnParam(defaultVal, nullable, column.type, i));
+                addColumnList.add(new AddColumnParam(defaultVal, nullable, column.type, i, refOtherCol));
             }
         }
         if (addColumnList.isEmpty()) {
@@ -165,7 +173,14 @@ public class AddMultiColumnFiller extends AbstractFiller {
             valList.add(valItem);
         }
         addColumnList.forEach(addColumnParam -> {
-            valList.add(addColumnParam.getAddPos(), addColumnParam.getDefaultVal());
+            Object defaultVal;
+            if (addColumnParam.getDefaultVal() instanceof Integer
+                && addColumnParam.isRefOtherCol()) {
+                defaultVal = valList.get((Integer) addColumnParam.getDefaultVal());
+            } else {
+                defaultVal = addColumnParam.getDefaultVal();
+            }
+            valList.add(addColumnParam.getAddPos(), defaultVal);
         });
 
         tuples = valList.toArray();

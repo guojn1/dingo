@@ -88,7 +88,7 @@ public class TxnPartDeleteOperator extends PartModifyOperator {
                         .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                         .findFirst().orElse(null);
                     if (addColumn != null) {
-                        defaultVal = addColumn.getDefaultVal();
+                        defaultVal = addColumn.getDefaultVal(indexTable);
                     }
                 }
                 Object[] finalTuple = tuple;

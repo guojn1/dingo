@@ -88,6 +88,7 @@ public class DingoFunFactory extends DefaultFunFactory {
         registerUnaryFun(HexFun.NAME, HexFun.INSTANCE);
         registerBinaryFun(DaySubFun.NAME, DaySubFun.INSTANCE);
         registerUnaryFun(GetDateFun.NAME, GetDateFun.INSTANCE);
+        registerUnaryFun(RefValFun.NAME, RefValFun.INSTANCE);
     }
 
     public static synchronized DingoFunFactory getInstance() {

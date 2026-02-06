@@ -16,17 +16,21 @@
 
 package io.dingodb.calcite;
 
+import io.dingodb.calcite.fun.DingoOperatorTable;
 import io.dingodb.calcite.schema.RootSnapshotSchema;
 import io.dingodb.meta.entity.Column;
+import io.dingodb.meta.entity.Table;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
@@ -45,6 +49,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Collections;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 
@@ -63,14 +68,14 @@ class DingoInitializerExpressionFactory extends NullInitializerExpressionFactory
     private SqlNode validateExprWithRowType(
         @NonNull InitializerContext context,
         RelDataType rowType,
-        SqlNode expr
+        SqlNode expr,
+        String name
     ) {
-        final String tableName = "_table_";
         final SqlSelect select0 = new SqlSelect(
             SqlParserPos.ZERO,
             null,
             new SqlNodeList(Collections.singletonList(expr), SqlParserPos.ZERO),
-            new SqlIdentifier(tableName, SqlParserPos.ZERO),
+            new SqlIdentifier(name, SqlParserPos.ZERO),
             null,
             null,
             null,
@@ -84,7 +89,7 @@ class DingoInitializerExpressionFactory extends NullInitializerExpressionFactory
         RelDataTypeFactory typeFactory = rexBuilder.getTypeFactory();
         CalciteCatalogReader catalogReader = SqlValidatorUtil.createSingleTableCatalogReader(
             true,
-            tableName,
+            name,
             typeFactory,
             rowType
         );
@@ -110,7 +115,8 @@ class DingoInitializerExpressionFactory extends NullInitializerExpressionFactory
 
     @Override
     public RexNode newColumnDefaultValue(RelOptTable table, int column, InitializerContext context) {
-        Column col = table.unwrap(DingoTable.class).getTable().getColumns().get(column);
+        Table table1 = Objects.requireNonNull(table.unwrap(DingoTable.class)).getTable();
+        Column col = table1.getColumns().get(column);
         String defaultValue = col.getDefaultValueExpr();
 
         if (col.isAutoIncrement()) {
@@ -123,7 +129,20 @@ class DingoInitializerExpressionFactory extends NullInitializerExpressionFactory
         if (StringUtils.isEmpty(defaultValue)) {
             return super.newColumnDefaultValue(table, column, context);
         }
-
+        if (defaultValue.startsWith("(`") && defaultValue.endsWith("`)")) {
+            defaultValue = defaultValue.substring(2, defaultValue.length() - 2);
+            Column refColumn = table1.getColumn(defaultValue);
+            int index = table1.getColumnIndex(defaultValue);
+            if (refColumn != null && refColumn.getType() == col.getType()) {
+                SqlFunction sqlFunction = DingoOperatorTable.instance().getFunction("REFVAL");
+                if (sqlFunction != null) {
+                    return context.getRexBuilder().makeCall(sqlFunction,
+                        new RexInputRef(index,
+                            context.getRexBuilder().getTypeFactory()
+                                .createSqlType(SqlTypeName.get(refColumn.sqlTypeName))));
+                }
+            }
+        }
         RelDataType rowType = table.getRowType();
         SqlNode sqlNode = context.parseExpression(DingoParser.PARSER_CONFIG, defaultValue);
         /*
@@ -132,7 +151,7 @@ class DingoInitializerExpressionFactory extends NullInitializerExpressionFactory
         NOTE: the type is the table type, not the type of this column.
         */
         // sqlNode = context.validateExpression(table.getRowType(), sqlNode);
-        sqlNode = validateExprWithRowType(context, rowType, sqlNode);
+        sqlNode = validateExprWithRowType(context, rowType, sqlNode, table1.getName());
         RexBuilder rexBuilder = context.getRexBuilder();
         RelDataType targetType = table.getRowType().getFieldList().get(column).getType();
         RexNode rex;

@@ -26,6 +26,7 @@ import io.dingodb.exec.fun.DaySubFun;
 import io.dingodb.exec.fun.GetDateFun;
 import io.dingodb.exec.fun.LengthFun;
 import io.dingodb.exec.fun.PowFunFactory;
+import io.dingodb.exec.fun.RefValFun;
 import io.dingodb.exec.fun.StrToDateFun;
 import io.dingodb.exec.fun.ValuesFun;
 import io.dingodb.exec.fun.mysql.DatabaseFun;
@@ -525,6 +526,13 @@ public class DingoOperatorTable implements SqlOperatorTable {
             family(SqlTypeFamily.DATE, SqlTypeFamily.NUMERIC),
             SqlFunctionCategory.NUMERIC
         );
+        registerFunction(
+            RefValFun.NAME,
+            ReturnTypes.ARG0_NULLABLE,
+            InferTypes.ANY_NULLABLE,
+            OperandTypes.ANY,
+            SqlFunctionCategory.USER_DEFINED_FUNCTION
+        );
     }
 
     public void registerFunction(
@@ -582,5 +590,9 @@ public class DingoOperatorTable implements SqlOperatorTable {
     @Override
     public List<SqlOperator> getOperatorList() {
         return new ArrayList<>(funMap.values());
+    }
+
+    public SqlFunction getFunction(String name) {
+        return this.funMap.get(name).stream().findFirst().orElse(null);
     }
 }

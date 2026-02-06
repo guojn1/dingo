@@ -127,7 +127,7 @@ public class Column {
             .build();
     }
 
-    public Object getFillerValue() {
+    public Object getFillerValue(Table table) {
         DingoType type = this.getType();
         if (this.getDefaultValueExpr() == null) {
             if (!this.isNullable()) {
@@ -136,6 +136,13 @@ public class Column {
         } else {
             DingoTimeZoneProcessor processor = DingoTimeZoneContext.getProcessor();
             String defaultValueExpr = this.defaultValueExpr;
+            if (defaultValueExpr.startsWith("(`") && defaultValueExpr.endsWith("`)")) {
+                defaultValueExpr = defaultValueExpr.substring(2, defaultValueExpr.length() - 2);
+                int refColumnIndex = table.getColumnIndex(defaultValueExpr);
+                if (refColumnIndex > -1) {
+                    return "refValIndex(" + refColumnIndex + ")";
+                }
+            }
             if (defaultValueExpr.startsWith("'") && defaultValueExpr.endsWith("'")) {
                 defaultValueExpr = SqlParserUtil.trim(defaultValueExpr, "'");
             }
@@ -241,11 +248,18 @@ public class Column {
         return null;
     }
 
-    public Object getDefaultVal() {
+    public Object getDefaultVal(Table table) {
         if (defaultValueExpr == null) {
             return null;
         }
         DingoTimeZoneProcessor processor = DingoTimeZoneContext.getProcessor();
+        if (defaultValueExpr.startsWith("('") && defaultValueExpr.endsWith(")")) {
+            String defaultValueExprRef = defaultValueExpr.substring(2, defaultValueExpr.length() - 2);
+            int refColumnIndex = table.getColumnIndex(defaultValueExprRef);
+            if (refColumnIndex > -1) {
+                return "refValIndex(" + refColumnIndex + ")";
+            }
+        }
         if (type instanceof StringType) {
             return defaultValueExpr;
         } else if (type instanceof LongType) {

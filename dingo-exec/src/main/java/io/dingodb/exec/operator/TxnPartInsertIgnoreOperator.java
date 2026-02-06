@@ -146,7 +146,7 @@ public class TxnPartInsertIgnoreOperator extends PartModifyOperator {
                     .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                     .findFirst().orElse(null);
                 if (addColumn != null) {
-                    defaultVal = addColumn.getDefaultVal();
+                    defaultVal = addColumn.getDefaultVal(indexTable);
                 }
             }
             Object[] finalTuple = tuple;
@@ -446,7 +446,8 @@ public class TxnPartInsertIgnoreOperator extends PartModifyOperator {
                 .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                 .findFirst().orElse(null);
             if (addColumn != null) {
-                defaultVal = addColumn.getDefaultVal();
+                Table indexTable = (Table) TransactionManager.getIndex(txnId, indexTableId);
+                defaultVal = addColumn.getDefaultVal(indexTable);
             }
         }
         Object[] finalTuple = Arrays.copyOf(tuple, tuple.length);
@@ -468,7 +469,7 @@ public class TxnPartInsertIgnoreOperator extends PartModifyOperator {
             .calcPartId(oldKeyValue.getKey(), rangeDistribution);
         indexRegionIdByte = indexRegionId.encode();
         byte[] oldKeys = CodecService.getDefault().setId(oldKeyValue.getKey(), indexRegionId.domain);
-            StoreInstance indexKvStore = Services.KV_STORE.getInstance(indexTableId, indexRegionId);
+        StoreInstance indexKvStore = Services.KV_STORE.getInstance(indexTableId, indexRegionId);
         KeyValue primaryKeyValue = indexKvStore.txnGet(
                 txnId.seq,
                 oldKeys,

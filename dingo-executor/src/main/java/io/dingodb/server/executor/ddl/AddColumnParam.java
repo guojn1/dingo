@@ -27,4 +27,5 @@ public class AddColumnParam {
     private boolean nullable;
     private DingoType dingoType;
     private int addPos;
+    private boolean refOtherCol;
 }

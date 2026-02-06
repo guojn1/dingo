@@ -147,7 +147,7 @@ public class TxnPartReplaceIntoOperator extends PartModifyOperator {
                     .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                     .findFirst().orElse(null);
                 if (addColumn != null) {
-                    defaultVal = addColumn.getDefaultVal();
+                    defaultVal = addColumn.getDefaultVal(indexTable);
                 }
             }
             copyTuple = Arrays.copyOf(tuple, tuple.length);
@@ -768,7 +768,7 @@ public class TxnPartReplaceIntoOperator extends PartModifyOperator {
                 .filter(column -> column.getSchemaState() != SchemaState.SCHEMA_PUBLIC)
                 .findFirst().orElse(null);
             if (addColumn != null) {
-                defaultVal = addColumn.getDefaultVal();
+                defaultVal = addColumn.getDefaultVal(index);
             }
         }
         Object[] finalTuple = param.getCodec().decode(primaryKeyValue);
